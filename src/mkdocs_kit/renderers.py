@@ -15,12 +15,32 @@ if not hasattr(PIL.ImageDraw.ImageDraw, 'textsize'):
         return (bbox[2] - bbox[0], bbox[3] - bbox[1])
     PIL.ImageDraw.ImageDraw.textsize = patched_textsize
 
+# Mock missing distributions for PyInstaller frozen environment
+import pkg_resources
+orig_resolve = pkg_resources.WorkingSet.resolve
+def patched_resolve(self, requirements, *args, **kwargs):
+    while True:
+        try:
+            return orig_resolve(self, requirements, *args, **kwargs)
+        except (pkg_resources.DistributionNotFound, pkg_resources.VersionConflict) as e:
+            req = e.req
+            dist = pkg_resources.Distribution(
+                project_name=req.project_name,
+                version='99.9.9',
+                location=''
+            )
+            self.add(dist)
+pkg_resources.WorkingSet.resolve = patched_resolve
+
+
 import rackdiag.parser
 import rackdiag.builder
 import rackdiag.drawer
 import packetdiag.parser
 import packetdiag.builder
 import packetdiag.drawer
+
+
 
 def render_plantuml(src):
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -49,6 +69,22 @@ def render_wireviz(src):
         return svg_data
     except Exception as e:
         raise RuntimeError(f"WireViz rendering failed: {e}")
+
+# Monkey-patch PIL.ImageDraw.ImageDraw.textsize for Pillow 10+ compatibility with blockdiag
+import PIL.ImageDraw
+if not hasattr(PIL.ImageDraw.ImageDraw, 'textsize'):
+    def patched_textsize(self, text, font=None, *args, **kwargs):
+        bbox = self.textbbox((0, 0), text, font=font, *args, **kwargs)
+        return (bbox[2] - bbox[0], bbox[3] - bbox[1])
+    PIL.ImageDraw.ImageDraw.textsize = patched_textsize
+
+# Register blockdiag SVG drawer for PyInstaller frozen environments
+try:
+    from blockdiag.imagedraw import install_imagedrawer
+    from blockdiag.imagedraw.svg import SVGImageDraw
+    install_imagedrawer('svg', SVGImageDraw)
+except Exception:
+    pass
 
 def render_rackdiag(src):
     try:
@@ -86,6 +122,7 @@ def parse_lisp(src):
             if token == '(':
                 sublist, index = helper(index + 1)
                 result.append(sublist)
+                index += 1  # Skip the closing ')'
             elif token == ')':
                 return result, index
             else:
@@ -101,6 +138,7 @@ def parse_lisp(src):
 
     parsed, _ = helper(0)
     return parsed[0] if parsed else []
+
 
 def lisp_to_bitfield(parsed):
     fields = []

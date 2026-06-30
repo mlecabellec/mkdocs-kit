@@ -81,9 +81,14 @@ connectors:
     type: RJ45
     pinlabels: [RX, TX, GND]
 
+cables:
+  W1:
+    wirecount: 3
+
 connections:
   -
     - A: [1, 2, 3]
+    - W1: [1, 2, 3]
     - B: [2, 1, 3]
 ```
 
@@ -93,13 +98,14 @@ connections:
 rackdiag {
   rack {
     16U;
-    1: UPS [webcolor = "red"];
-    2-3: DB Server;
-    4-5: Web Server;
+    1: UPS [color = "red"];
+    2: DB Server [2U];
+    4: Web Server [2U];
     6: Switch;
   }
 }
 ```
+
 
 ## PacketDiag
 

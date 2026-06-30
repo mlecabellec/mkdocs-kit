@@ -13,8 +13,7 @@ def flatten_nav(nav):
         for key, value in nav.items():
             pages.extend(flatten_nav(value))
     elif isinstance(nav, str):
-        html_file = nav.replace(".md", ".html")
-        pages.append(html_file)
+        pages.append(nav)
     return pages
 
 def extract_main_content(html_content):
@@ -68,24 +67,45 @@ def generate_pdf(site_dir, mkdocs_yml_path, pdf_output_path):
 
     combined_body_parts = []
     for page in pages:
-        html_path = os.path.join(site_dir, page)
-        if not os.path.exists(html_path):
+        if page.endswith('.html'):
+            found_path = os.path.join(site_dir, page)
+            page_rel_dir = os.path.dirname(page)
+        else:
+            if page == "index.md":
+                html_paths_to_try = ["index.html"]
+            else:
+                name_no_ext = os.path.splitext(page)[0]
+                html_paths_to_try = [
+                    os.path.join(name_no_ext, "index.html"),
+                    name_no_ext + ".html"
+                ]
+                
+            found_path = None
+            page_rel_dir = ""
+            for rel_try in html_paths_to_try:
+                full_try = os.path.normpath(os.path.join(site_dir, rel_try))
+                if os.path.exists(full_try):
+                    found_path = full_try
+                    page_rel_dir = os.path.dirname(rel_try)
+                    break
+                    
+        if not found_path or not os.path.exists(found_path):
             continue
             
         try:
-            with open(html_path, 'r', encoding='utf-8') as f:
+            with open(found_path, 'r', encoding='utf-8') as f:
                 html_content = f.read()
         except Exception:
             continue
             
-        page_dir = os.path.dirname(page)
         content = extract_main_content(html_content)
-        content = adjust_paths(content, page_dir)
+        content = adjust_paths(content, page_rel_dir)
         
         if combined_body_parts:
             combined_body_parts.append('<div class="page-break"></div>')
             
         combined_body_parts.append(f'<section class="pdf-page" data-source="{page}">{content}</section>')
+
 
     master_html = f"""<!DOCTYPE html>
 <html>
