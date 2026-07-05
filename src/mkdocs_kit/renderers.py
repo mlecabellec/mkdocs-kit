@@ -54,10 +54,11 @@ def render_plantuml(src):
         except subprocess.CalledProcessError as e:
             raise RuntimeError(f"PlantUML rendering failed: {e.stderr or e.stdout}")
         
-        svg_path = os.path.join(tmpdir, 'diagram.svg')
-        if not os.path.exists(svg_path):
+        svg_files = [f for f in os.listdir(tmpdir) if f.endswith('.svg')]
+        if not svg_files:
             raise RuntimeError("PlantUML did not generate an SVG file.")
         
+        svg_path = os.path.join(tmpdir, svg_files[0])
         with open(svg_path, 'r', encoding='utf-8') as f:
             return f.read()
 
