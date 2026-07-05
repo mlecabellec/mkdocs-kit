@@ -1,0 +1,13 @@
+# Maintainer: Mickael Lecabellec <mickael.lecabellec@gmail.com>
+pkgname=mkdocs-kit
+pkgver=1.0.0
+pkgrel=1
+pkgdesc="A wrapped, highly integrated documentation generation environment."
+arch=('x86_64')
+url="https://github.com/mlecabellec/mkdocs-kit"
+license=('MIT')
+depends=('graphviz' 'plantuml' 'cairo' 'pango' 'gdk-pixbuf2' 'glib2' 'shared-mime-info')
+
+package() {
+  install -Dm755 "${srcdir}/../mkdocs-kit" "${pkgdir}/usr/bin/mkdocs-kit"
+}

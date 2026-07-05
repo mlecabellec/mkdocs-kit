@@ -1,0 +1,10 @@
+Package: mkdocs-kit
+Version: 1.0.0
+Section: utils
+Priority: optional
+Maintainer: Mickael Lecabellec <mickael.lecabellec@gmail.com>
+Architecture: amd64
+Depends: graphviz, plantuml, libcairo2, libpango-1.0-0, libpangocairo-1.0-0, libgdk-pixbuf-2.0-0 | libgdk-pixbuf2.0-0, libglib2.0-0, shared-mime-info
+Description: A wrapped, highly integrated documentation generation environment.
+ MkDocs Kit is a wrapped, highly integrated documentation generation environment
+ compiled into a single standalone binary.
