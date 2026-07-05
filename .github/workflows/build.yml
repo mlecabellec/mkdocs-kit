@@ -65,10 +65,8 @@ jobs:
             plantuml \
             libcairo2-dev \
             libpango1.0-dev \
-            libgdk-pixbuf-2.0-0 \
             libffi-dev \
-            shared-mime-info \
-            openjdk-17-jre-headless
+            shared-mime-info
 
       - name: Install dependencies (Fedora)
         if: matrix.pkg_type == 'rpm'
@@ -78,10 +76,12 @@ jobs:
             python3-pip \
             python3-setuptools \
             python3-wheel \
-            development-tools \
+            gcc \
+            gcc-c++ \
+            make \
+            findutils \
             graphviz \
             plantuml \
-            java-17-openjdk-headless \
             cairo-devel \
             pango-devel \
             gdk-pixbuf2-devel \
@@ -100,7 +100,6 @@ jobs:
             base-devel \
             graphviz \
             plantuml \
-            jre-openjdk-headless \
             cairo \
             pango \
             gdk-pixbuf2 \
@@ -108,6 +107,7 @@ jobs:
             sudo
 
       - name: Build standalone binary
+        shell: bash
         run: |
           python3 -m venv .venv
           source .venv/bin/activate
@@ -118,6 +118,7 @@ jobs:
           pyinstaller mkdocs-kit.spec
 
       - name: Run unit tests
+        shell: bash
         run: |
           source .venv/bin/activate
           python3 -m unittest tests/test_all.py
