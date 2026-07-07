@@ -12,7 +12,9 @@ dist/
 .mypy_cache/
 
 # Test and generated outputs
-test_project/
+test_project/site/
+test_project/man/
+test_project/documentation.pdf
 site/
 man/
 *.pdf

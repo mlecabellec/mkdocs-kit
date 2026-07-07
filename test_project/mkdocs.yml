@@ -1,0 +1,23 @@
+site_name: My Documentation Kit
+use_directory_urls: false
+theme:
+  name: material
+  palette:
+    scheme: slate
+    primary: indigo
+    accent: indigo
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - toc.integrate
+
+plugins:
+  - search
+
+nav:
+  - Home: index.md
+  - UML Diagrams: uml/plantuml.md
+  - Hardware & Cabling: hardware/wireviz.md
+  - Infrastructure: infrastructure/rackdiag.md
+  - Networking: network/packetdiag.md
+  - Data Structures: electronics/bytefield.md
