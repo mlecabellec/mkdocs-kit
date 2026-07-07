@@ -39,6 +39,12 @@ import rackdiag.drawer
 import packetdiag.parser
 import packetdiag.builder
 import packetdiag.drawer
+import blockdiag.parser
+import blockdiag.builder
+import blockdiag.drawer
+import nwdiag.parser
+import nwdiag.builder
+import nwdiag.drawer
 
 
 
@@ -112,6 +118,32 @@ def render_packetdiag(src):
         return svg
     except Exception as e:
         raise RuntimeError(f"PacketDiag rendering failed: {e}")
+
+def render_blockdiag(src):
+    try:
+        tree = blockdiag.parser.parse_string(src)
+        diagram = blockdiag.builder.ScreenNodeBuilder.build(tree)
+        draw = blockdiag.drawer.DiagramDraw('SVG', diagram)
+        draw.draw()
+        svg = draw.save()
+        if isinstance(svg, bytes):
+            return svg.decode('utf-8')
+        return svg
+    except Exception as e:
+        raise RuntimeError(f"BlockDiag rendering failed: {e}")
+
+def render_nwdiag(src):
+    try:
+        tree = nwdiag.parser.parse_string(src)
+        diagram = nwdiag.builder.ScreenNodeBuilder.build(tree)
+        draw = nwdiag.drawer.DiagramDraw('SVG', diagram)
+        draw.draw()
+        svg = draw.save()
+        if isinstance(svg, bytes):
+            return svg.decode('utf-8')
+        return svg
+    except Exception as e:
+        raise RuntimeError(f"NwDiag rendering failed: {e}")
 
 def parse_lisp(src):
     tokens = re.findall(r'\(|\)|"[^"]*"|:[^\s)]+|[^\s()]+', src)

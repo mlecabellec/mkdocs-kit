@@ -9,6 +9,7 @@ theme:
   features:
     - navigation.tabs
     - navigation.sections
+    - navigation.expand
 
 plugins:
   - search
@@ -17,4 +18,12 @@ nav:
   - Home: index.md
   - User Manual: user_manual.md
   - Diagram Guide: diagram_guide.md
+  - Diagrams:
+    - PlantUML: diagrams/plantuml.md
+    - WireViz: diagrams/wireviz.md
+    - RackDiag: diagrams/rackdiag.md
+    - PacketDiag: diagrams/packetdiag.md
+    - ByteField: diagrams/bytefield.md
+    - BlockDiag: diagrams/blockdiag.md
+    - NwDiag: diagrams/nwdiag.md
   - Capabilities Analysis: capabilities.md

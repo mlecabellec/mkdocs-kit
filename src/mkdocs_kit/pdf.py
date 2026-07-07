@@ -181,12 +181,12 @@ img {{
 .page-break {{
     page-break-before: always;
 }}
-.diagram-plantuml, .diagram-wireviz, .diagram-rackdiag, .diagram-packetdiag, .diagram-bytefield {{
+.diagram-plantuml, .diagram-wireviz, .diagram-rackdiag, .diagram-packetdiag, .diagram-bytefield, .diagram-blockdiag, .diagram-nwdiag {{
     text-align: center;
     margin: 20px 0;
     page-break-inside: avoid;
 }}
-.diagram-plantuml svg, .diagram-wireviz svg, .diagram-rackdiag svg, .diagram-packetdiag svg, .diagram-bytefield svg {{
+.diagram-plantuml svg, .diagram-wireviz svg, .diagram-rackdiag svg, .diagram-packetdiag svg, .diagram-bytefield svg, .diagram-blockdiag svg, .diagram-nwdiag svg {{
     max-width: 100% !important;
     max-height: 22cm !important;
     width: auto !important;

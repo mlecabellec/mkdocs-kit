@@ -1,10 +1,13 @@
 import re
 from mkdocs.plugins import BasePlugin
-from mkdocs_kit.renderers import render_plantuml, render_wireviz, render_rackdiag, render_packetdiag, render_bytefield
+from mkdocs_kit.renderers import (
+    render_plantuml, render_wireviz, render_rackdiag, render_packetdiag,
+    render_bytefield, render_blockdiag, render_nwdiag
+)
 
 class DiagramsPlugin(BasePlugin):
     def on_page_markdown(self, markdown, page, config, files):
-        pattern = r'```(plantuml|wireviz|rackdiag|packetdiag|bytefield)\n(.*?)\n```'
+        pattern = r'```(plantuml|wireviz|rackdiag|packetdiag|bytefield|blockdiag|nwdiag)\n(.*?)\n```'
         
         def replace_block(match):
             diag_type = match.group(1)
@@ -20,6 +23,10 @@ class DiagramsPlugin(BasePlugin):
                     svg = render_packetdiag(content)
                 elif diag_type == 'bytefield':
                     svg = render_bytefield(content)
+                elif diag_type == 'blockdiag':
+                    svg = render_blockdiag(content)
+                elif diag_type == 'nwdiag':
+                    svg = render_nwdiag(content)
                 else:
                     return match.group(0)
                 
