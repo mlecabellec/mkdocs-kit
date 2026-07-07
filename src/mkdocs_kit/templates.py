@@ -2,9 +2,18 @@ MKDOCS_YML = """site_name: My Documentation Kit
 theme:
   name: material
   palette:
-    scheme: slate
-    primary: indigo
-    accent: indigo
+    - scheme: slate          # Dark mode (default)
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    - scheme: default        # Light mode
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
   features:
     - navigation.tabs
     - navigation.sections
