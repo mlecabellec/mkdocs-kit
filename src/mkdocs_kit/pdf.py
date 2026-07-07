@@ -187,8 +187,11 @@ img {{
     page-break-inside: avoid;
 }}
 .diagram-plantuml svg, .diagram-wireviz svg, .diagram-rackdiag svg, .diagram-packetdiag svg, .diagram-bytefield svg {{
-    max-width: 100%;
-    height: auto;
+    max-width: 100% !important;
+    max-height: 22cm !important;
+    width: auto !important;
+    height: auto !important;
+    object-fit: contain !important;
 }}
 </style>
 </head>
