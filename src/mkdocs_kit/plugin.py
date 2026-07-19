@@ -34,13 +34,17 @@ class DiagramsPlugin(BasePlugin):
                 elif diag_type == 'nwdiag':
                     svg = render_nwdiag(content)
                 elif diag_type == 'csv':
-                    return render_csv(content, page_dir=page_dir)
+                    html_res = render_csv(content, page_dir=page_dir)
+                    return "\n".join(line.strip() for line in html_res.splitlines() if line.strip())
                 elif diag_type == 'plotly':
-                    return render_plotly(content, page_dir=page_dir)
+                    html_res = render_plotly(content, page_dir=page_dir)
+                    return "\n".join(line.strip() for line in html_res.splitlines() if line.strip())
                 elif diag_type == 'd3':
-                    return render_d3(content, page_dir=page_dir)
+                    html_res = render_d3(content, page_dir=page_dir)
+                    return "\n".join(line.strip() for line in html_res.splitlines() if line.strip())
                 else:
                     return match.group(0)
+
                 
                 svg_clean = svg.strip()
                 if svg_clean.startswith('<?xml'):

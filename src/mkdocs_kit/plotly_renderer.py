@@ -8,7 +8,6 @@ def parse_plotly_spec(src, page_dir="."):
     Parses Plotly spec from JSON, YAML or external file reference.
     """
     src_stripped = textwrap.dedent(src).strip()
-
     
     # Check for file parameter
     if src_stripped.startswith('file:'):
@@ -131,7 +130,7 @@ def render_plotly_svg_fallback(spec):
 def render_plotly(src, page_dir="."):
     """
     Main renderer for Plotly chart codeblocks.
-    Returns container with client Plotly.js loader and SVG fallback.
+    Returns clean, unindented HTML container with client Plotly.js loader and SVG fallback.
     """
     spec = parse_plotly_spec(src, page_dir)
     plotly_id = f"plotly-chart-{abs(hash(src)) % 1000000}"
@@ -139,34 +138,34 @@ def render_plotly(src, page_dir="."):
     spec_json = json.dumps(spec)
     svg_static = render_plotly_svg_fallback(spec)
     
-    html = f'''
-    <div class="mkdocs-kit-plotly-wrapper" id="{plotly_id}">
-        <div class="mkdocs-kit-plotly-container" style="width: 100%; min-height: 350px;">{svg_static}</div>
-        <script>
-        (function() {{
-            const container = document.getElementById("{plotly_id}").querySelector(".mkdocs-kit-plotly-container");
-            const config = {spec_json};
-            if (typeof Plotly !== "undefined") {{
-                container.innerHTML = "";
-                Plotly.newPlot(container, config.data || [], config.layout || {{}}, {{responsive: true}});
-            }} else {{
-                if (!window.plotlyScriptLoading) {{
-                    window.plotlyScriptLoading = true;
-                    const script = document.createElement("script");
-                    script.src = "https://cdn.plot.ly/plotly-2.27.0.min.js";
-                    script.onload = function() {{
-                        document.querySelectorAll(".mkdocs-kit-plotly-wrapper").forEach(w => {{
-                            const c = w.querySelector(".mkdocs-kit-plotly-container");
-                            const cfg = w.dataset.config ? JSON.parse(w.dataset.config) : null;
-                            if (c && cfg) {{ c.innerHTML = ""; Plotly.newPlot(c, cfg.data || [], cfg.layout || {{}}, {{responsive: true}}); }}
-                        }});
-                    }};
-                    document.head.appendChild(script);
-                }}
-                document.getElementById("{plotly_id}").dataset.config = JSON.stringify(config);
-            }}
-        }})();
-        </script>
-    </div>
-    '''
-    return html
+    raw_html = f'''<div class="mkdocs-kit-plotly-wrapper" id="{plotly_id}">
+<div class="mkdocs-kit-plotly-container" style="width: 100%; min-height: 350px;">{svg_static}</div>
+<script>
+(function() {{
+const container = document.getElementById("{plotly_id}").querySelector(".mkdocs-kit-plotly-container");
+const config = {spec_json};
+if (typeof Plotly !== "undefined") {{
+container.innerHTML = "";
+Plotly.newPlot(container, config.data || [], config.layout || {{}}, {{responsive: true}});
+}} else {{
+if (!window.plotlyScriptLoading) {{
+window.plotlyScriptLoading = true;
+const script = document.createElement("script");
+script.src = "https://cdn.plot.ly/plotly-2.27.0.min.js";
+script.onload = function() {{
+document.querySelectorAll(".mkdocs-kit-plotly-wrapper").forEach(w => {{
+const c = w.querySelector(".mkdocs-kit-plotly-container");
+const cfg = w.dataset.config ? JSON.parse(w.dataset.config) : null;
+if (c && cfg) {{ c.innerHTML = ""; Plotly.newPlot(c, cfg.data || [], cfg.layout || {{}}, {{responsive: true}}); }}
+}});
+}};
+document.head.appendChild(script);
+}}
+document.getElementById("{plotly_id}").dataset.config = JSON.stringify(config);
+}}
+}})();
+</script>
+</div>'''
+    # Ensure all lines are completely unindented to prevent Markdown codeblock wrapping
+    lines = [line.strip() for line in raw_html.splitlines() if line.strip()]
+    return "\n".join(lines)

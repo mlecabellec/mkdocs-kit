@@ -1,14 +1,15 @@
 import json
 import os
+import re
 import textwrap
 import yaml
 
 def parse_d3_spec(src, page_dir="."):
     """
     Parses D3 chart specification from JSON, YAML or external file reference.
+    Robustly handles loose list items (e.g., `- label: "API", value: 90`).
     """
     src_stripped = textwrap.dedent(src).strip()
-
     
     if src_stripped.startswith('file:'):
         file_path = src_stripped.split('file:', 1)[1].strip().strip('"\'')
@@ -19,15 +20,28 @@ def parse_d3_spec(src, page_dir="."):
         else:
             raise FileNotFoundError(f"D3 file not found: {file_path}")
             
+    # Normalize loose key-value pairs inside list items: "- label: X, value: Y" -> "- {label: X, value: Y}"
+    normalized_lines = []
+    for line in src_stripped.splitlines():
+        match = re.match(r'^\s*-\s+([a-zA-Z0-9_]+:\s*[^,]+,\s*[a-zA-Z0-9_]+:.*)$', line)
+        if match:
+            indent = line[:line.find('-')]
+            kv_pairs = match.group(1)
+            normalized_lines.append(f"{indent}- {{{kv_pairs}}}")
+        else:
+            normalized_lines.append(line)
+            
+    normalized_src = "\n".join(normalized_lines)
+    
     try:
-        data = json.loads(src_stripped)
+        data = json.loads(normalized_src)
         if isinstance(data, dict):
             return data
     except json.JSONDecodeError:
         pass
         
     try:
-        data = yaml.safe_load(src_stripped)
+        data = yaml.safe_load(normalized_src)
         if isinstance(data, dict):
             return data
     except Exception:
@@ -96,7 +110,7 @@ def render_d3_svg_static(spec):
 def render_d3(src, page_dir="."):
     """
     Main renderer for D3 chart codeblocks.
-    Returns container with client D3.js v7 loader and SVG static fallback.
+    Returns unindented HTML container with client D3.js v7 loader and SVG static fallback.
     """
     spec = parse_d3_spec(src, page_dir)
     d3_id = f"d3-chart-{abs(hash(src)) % 1000000}"
@@ -104,23 +118,22 @@ def render_d3(src, page_dir="."):
     spec_json = json.dumps(spec)
     svg_static = render_d3_svg_static(spec)
     
-    html = f'''
-    <div class="mkdocs-kit-d3-wrapper" id="{d3_id}">
-        <div class="mkdocs-kit-d3-container" style="width: 100%; min-height: 350px;">{svg_static}</div>
-        <script>
-        (function() {{
-            const container = document.getElementById("{d3_id}").querySelector(".mkdocs-kit-d3-container");
-            const spec = {spec_json};
-            if (typeof d3 !== "undefined") {{
-                // Interactivity hook
-            }} else if (!window.d3ScriptLoading) {{
-                window.d3ScriptLoading = true;
-                const script = document.createElement("script");
-                script.src = "https://cdn.jsdelivr.net/npm/d3@7";
-                document.head.appendChild(script);
-            }}
-        }})();
-        </script>
-    </div>
-    '''
-    return html
+    raw_html = f'''<div class="mkdocs-kit-d3-wrapper" id="{d3_id}">
+<div class="mkdocs-kit-d3-container" style="width: 100%; min-height: 350px;">{svg_static}</div>
+<script>
+(function() {{
+const container = document.getElementById("{d3_id}").querySelector(".mkdocs-kit-d3-container");
+const spec = {spec_json};
+if (typeof d3 !== "undefined") {{
+// Interactivity hook
+}} else if (!window.d3ScriptLoading) {{
+window.d3ScriptLoading = true;
+const script = document.createElement("script");
+script.src = "https://cdn.jsdelivr.net/npm/d3@7";
+document.head.appendChild(script);
+}}
+}})();
+</script>
+</div>'''
+    lines = [line.strip() for line in raw_html.splitlines() if line.strip()]
+    return "\n".join(lines)
