@@ -481,6 +481,40 @@ pyinstaller --onefile --name mkdocs-kit \
 
 ---
 
+## Multi-Distribution Build & Packaging
+
+MkDocs Kit provides structured, automated build scripts for target Linux distributions located in the `scripts/` directory:
+
+### Automated Distribution Build Scripts
+
+| Target OS | Output Format | Build Script | Description |
+| :--- | :--- | :--- | :--- |
+| **Debian / Ubuntu** | `.deb` package | [`scripts/build-debian.sh`](file:///home/m/git/mkdocs-kit/scripts/build-debian.sh) | Full build chain, tests, and `dpkg-deb` packaging |
+| **Fedora / RHEL** | `.rpm` package | [`scripts/build-fedora.sh`](file:///home/m/git/mkdocs-kit/scripts/build-fedora.sh) | Full build chain, tests, and `rpmbuild` packaging |
+| **Arch Linux** | `.pkg.tar.zst` | [`scripts/build-arch.sh`](file:///home/m/git/mkdocs-kit/scripts/build-arch.sh) | Full build chain, tests, and `makepkg` packaging |
+| **Master Builder** | All / Auto-detect | [`scripts/build-all.sh`](file:///home/m/git/mkdocs-kit/scripts/build-all.sh) | Detects host OS or triggers multi-distro builds |
+
+### Example Usage
+
+```bash
+# Auto-detect current distribution and run full build + test + package sequence:
+./scripts/build-all.sh
+
+# Run specific distribution build script directly:
+./scripts/build-debian.sh --output-dir ./dist-pkg
+./scripts/build-fedora.sh --output-dir ./dist-pkg
+./scripts/build-arch.sh --output-dir ./dist-pkg
+
+# Common flags supported across all scripts:
+#   -o, --output-dir DIR   Set output directory (default: ./output)
+#   -v, --version VER      Set package version (default: 1.0.0)
+#   --skip-tests           Skip unit tests and doc compilation test
+#   --skip-deps-check      Skip system package verification
+#   -c, --clean            Clean build folders & virtualenv before building
+```
+
+---
+
 ## Testing
 
 A comprehensive test suite is located in `tests/test_all.py`. It validates:
@@ -492,3 +526,4 @@ Run the tests using the virtual environment:
 ```bash
 .venv/bin/python -m unittest tests/test_all.py
 ```
+

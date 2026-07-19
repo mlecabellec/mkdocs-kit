@@ -85,3 +85,20 @@ man_description: Executes custom configuration sweeps.
 
 ### Build Result
 When you run the `build` command, MkDocs-Kit compiles these marked pages and writes them to the `site/man/` output folder (e.g. `site/man/man1/my-utility.1`).
+
+---
+
+## 📦 Automated Distribution Build Scripts
+
+MkDocs-Kit includes deterministic, multi-distribution build scripts located in `scripts/`:
+
+```bash
+# Auto-detect local OS distribution and run full build & test sequence:
+./scripts/build-all.sh
+
+# Run explicit distribution build script:
+./scripts/build-debian.sh -o ./output   # Builds Debian/Ubuntu .deb package
+./scripts/build-fedora.sh -o ./output   # Builds Fedora/RHEL .rpm package
+./scripts/build-arch.sh -o ./output     # Builds Arch Linux .pkg.tar.zst package
+```
+

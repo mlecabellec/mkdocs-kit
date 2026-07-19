@@ -1,11 +1,13 @@
 # Git ignore file for mkdocs-kit
 .venv/
+.venv-*/
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 build/
 dist/
+output/
 *.egg-info/
 .eggs/
 .pytest_cache/
