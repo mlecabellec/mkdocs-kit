@@ -20,7 +20,33 @@ def patched_load_config(*args, **kwargs):
         plugin = DiagramsPlugin()
         plugin.load_config({})
         config['plugins']['mkdocs_kit_diagrams'] = plugin
+        
+    # Ensure theme palette includes light/dark mode switch if not explicitly defined as list
+    if 'theme' in config and hasattr(config['theme'], 'palette'):
+        palette = config['theme'].palette
+        if not palette or not isinstance(palette, list):
+            config['theme']['palette'] = [
+                {
+                    'scheme': 'slate',
+                    'primary': 'indigo',
+                    'accent': 'indigo',
+                    'toggle': {
+                        'icon': 'material/brightness-4',
+                        'name': 'Switch to light mode'
+                    }
+                },
+                {
+                    'scheme': 'default',
+                    'primary': 'indigo',
+                    'accent': 'indigo',
+                    'toggle': {
+                        'icon': 'material/brightness-7',
+                        'name': 'Switch to dark mode'
+                    }
+                }
+            ]
     return config
+
 
 mkdocs.config.load_config = patched_load_config
 
