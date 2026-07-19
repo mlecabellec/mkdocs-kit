@@ -16,6 +16,9 @@ plugins:
 
 nav:
   - Home: index.md
+  - Data Tables: data_tables/csv.md
+  - Plotly Charts: charts/plotly.md
+  - D3 Visualizations: charts/d3.md
   - UML Diagrams: uml/plantuml.md
   - Hardware & Cabling: hardware/wireviz.md
   - Infrastructure: infrastructure/rackdiag.md

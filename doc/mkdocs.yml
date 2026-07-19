@@ -29,6 +29,9 @@ nav:
   - User Manual: user_manual.md
   - Diagram Guide: diagram_guide.md
   - Diagrams:
+    - CSV Tables: diagrams/csv.md
+    - Plotly Charts: diagrams/plotly.md
+    - D3.js Diagrams: diagrams/d3.md
     - PlantUML: diagrams/plantuml.md
     - WireViz: diagrams/wireviz.md
     - RackDiag: diagrams/rackdiag.md
