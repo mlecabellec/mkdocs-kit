@@ -88,7 +88,60 @@ When you run the `build` command, MkDocs-Kit compiles these marked pages and wri
 
 ---
 
+## 📊 CSV File Inclusion, Interactive Sorting & Filtering
+
+MkDocs-Kit supports embedding inline or external CSV files in Markdown using ````csv` blocks.
+
+```markdown
+```csv
+file: data/employees.csv
+page_size: 10
+sort: "Salary desc"
+filter: "Age >= 30"
+search: true
+caption: Employee Roster
+```
+```
+
+* **HTML Features**: Interactive column header click-to-sort, instant multi-column search, and paginated navigation.
+* **PDF Features**: Build-time dynamic filtering and column sorting, rendered into multi-page tables with repeating headers (`thead { display: table-header-group; }`).
+
+---
+
+## 📈 Plotly & D3.js Integration
+
+### Plotly Charts (`plotly`)
+```markdown
+```plotly
+data:
+  - x: ["Q1", "Q2", "Q3", "Q4"]
+    y: [120, 240, 180, 310]
+    type: "bar"
+    marker: { color: "#3498db" }
+layout:
+  title: "Quarterly Revenue"
+```
+```
+
+### D3.js Diagrams (`d3`)
+```markdown
+```d3
+type: "bar"
+data:
+  - label: "Alpha", value: 45
+  - label: "Beta", value: 82
+options:
+  title: "Performance Metrics"
+```
+```
+
+* **HTML**: Interactive Plotly and D3.js chart components.
+* **PDF**: Pre-rendered static vector SVGs compiled into WeasyPrint PDFs.
+
+---
+
 ## 📦 Automated Distribution Build Scripts
+
 
 MkDocs-Kit includes deterministic, multi-distribution build scripts located in `scripts/`:
 

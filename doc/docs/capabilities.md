@@ -78,5 +78,9 @@ PDF rendering uses **WeasyPrint** to compile all documents sequentially.
 | **RackDiag** | Server rack layouts | `rackdiag` python package | In-process |
 | **PacketDiag** | Network protocol packets | `packetdiag` python package | In-process |
 | **ByteField** | Bit field diagrams | `bit_field` python package | In-process |
+| **CSV Tables** | Data tables (paging, sort, filter) | `csv` & custom JS / filter engine | Dual (Interactive JS / Build-Time PDF) |
+| **Plotly** | Interactive 2D/3D charts | Plotly.js / SVG generator | Dual (Interactive JS / Build-Time SVG) |
+| **D3.js** | Data-driven vector graphics | D3 v7 / SVG vector engine | Dual (Interactive JS / Build-Time SVG) |
 | **PDF Manual** | Publication-ready A4 PDF | `weasyprint` library | CLI sub-invocation |
 | **Man Pages** | UNIX troff formatting | standard `re` parser | CLI sub-invocation |
+

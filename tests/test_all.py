@@ -14,11 +14,60 @@ from mkdocs_kit.renderers import (
     render_packetdiag,
     render_bytefield,
 )
+from mkdocs_kit.csv_renderer import render_csv, parse_csv_spec, apply_filter, apply_sort
+from mkdocs_kit.plotly_renderer import render_plotly, render_plotly_svg_fallback
+from mkdocs_kit.d3_renderer import render_d3, render_d3_svg_static
 from mkdocs_kit.man import convert_md_to_man
 from mkdocs_kit.cli import main as cli_main
 
 class TestDiagrams(unittest.TestCase):
+    def test_csv_rendering_and_filter_sort(self):
+        src = """
+        sort: "Age desc"
+        filter: "Age >= 30"
+        caption: Test CSV
+        
+        Name, Age, Department
+        Alice, 35, Engineering
+        Bob, 25, Design
+        Charlie, 40, Management
+        """
+        html = render_csv(src)
+        self.assertIn('<table class="mkdocs-kit-csv-table">', html)
+        self.assertIn('Alice', html)
+        self.assertIn('Charlie', html)
+        self.assertNotIn('Bob', html)  # Bob (25) filtered out by Age >= 30
+
+    def test_plotly_rendering(self):
+        src = """
+        data:
+          - x: ["A", "B"]
+            y: [10, 20]
+            type: "bar"
+        layout:
+          title: "Test Plotly"
+        """
+        html = render_plotly(src)
+        self.assertIn('mkdocs-kit-plotly-wrapper', html)
+        self.assertIn('<svg', html)
+        self.assertIn('Test Plotly', html)
+
+    def test_d3_rendering(self):
+        src = """
+        type: "bar"
+        data:
+          - label: "X"
+            value: 100
+        options:
+          title: "Test D3"
+        """
+        html = render_d3(src)
+        self.assertIn('mkdocs-kit-d3-wrapper', html)
+        self.assertIn('<svg', html)
+        self.assertIn('Test D3', html)
+
     def test_plantuml(self):
+
         src = """
         @startuml
         Alice -> Bob: Hello

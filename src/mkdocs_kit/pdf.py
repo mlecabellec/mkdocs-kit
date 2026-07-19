@@ -181,19 +181,45 @@ img {{
 .page-break {{
     page-break-before: always;
 }}
-.diagram-plantuml, .diagram-wireviz, .diagram-rackdiag, .diagram-packetdiag, .diagram-bytefield, .diagram-blockdiag, .diagram-nwdiag {{
+.diagram-plantuml, .diagram-wireviz, .diagram-rackdiag, .diagram-packetdiag, .diagram-bytefield, .diagram-blockdiag, .diagram-nwdiag, .mkdocs-kit-plotly-wrapper, .mkdocs-kit-d3-wrapper {{
     text-align: center;
     margin: 20px 0;
     page-break-inside: avoid;
 }}
-.diagram-plantuml svg, .diagram-wireviz svg, .diagram-rackdiag svg, .diagram-packetdiag svg, .diagram-bytefield svg, .diagram-blockdiag svg, .diagram-nwdiag svg {{
+.diagram-plantuml svg, .diagram-wireviz svg, .diagram-rackdiag svg, .diagram-packetdiag svg, .diagram-bytefield svg, .diagram-blockdiag svg, .diagram-nwdiag svg, .mkdocs-kit-plotly-wrapper svg, .mkdocs-kit-d3-wrapper svg {{
     max-width: 100% !important;
-    max-height: 22cm !important;
+    max-height: 20cm !important;
     width: auto !important;
     height: auto !important;
     object-fit: contain !important;
 }}
+.mkdocs-kit-csv-controls, .mkdocs-kit-csv-pagination {{
+    display: none !important;
+}}
+table.mkdocs-kit-csv-table {{
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin: 15px 0 !important;
+    font-size: 9pt !important;
+}}
+table.mkdocs-kit-csv-table thead {{
+    display: table-header-group !important;
+}}
+table.mkdocs-kit-csv-table tr {{
+    page-break-inside: avoid !important;
+}}
+table.mkdocs-kit-csv-table th, table.mkdocs-kit-csv-table td {{
+    border: 1px solid #d2d2d7 !important;
+    padding: 6px 8px !important;
+}}
+table.mkdocs-kit-csv-table th {{
+    background-color: #f5f5f7 !important;
+    color: #1d1d1f !important;
+    font-weight: 600 !important;
+}}
 </style>
+
+
 </head>
 <body>
 <div class="cover-page" style="page-break-after: always; text-align: center; padding-top: 5cm;">
