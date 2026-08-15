@@ -20,3 +20,5 @@ test_project/documentation.pdf
 site/
 man/
 *.pdf
+*.log
+/mkdocs-kit

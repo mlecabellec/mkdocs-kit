@@ -23,9 +23,7 @@ datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 tmp_ret = collect_all('bit_field')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
-hiddenimports += ['mkdocs_kit.csv_renderer', 'mkdocs_kit.plotly_renderer', 'mkdocs_kit.d3_renderer']
-
-
+hiddenimports += ['mkdocs_kit.csv_renderer', 'mkdocs_kit.plotly_renderer', 'mkdocs_kit.d3_renderer', 'mkdocs_kit.reporter', 'mkdocs_kit.link_checker']
 
 a = Analysis(
     ['src/mkdocs_kit/cli.py'],

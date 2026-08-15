@@ -2,7 +2,24 @@ import os
 import re
 import yaml
 import datetime
+import logging
 from weasyprint import HTML
+
+# Custom logging handler to intercept WeasyPrint warnings and errors for reporter
+class WeasyPrintLogHandler(logging.Handler):
+    def __init__(self, reporter=None):
+        super().__init__()
+        self.reporter = reporter
+
+    def emit(self, record):
+        msg = self.format(record)
+        if self.reporter:
+            if record.levelno >= logging.ERROR:
+                self.reporter.error(f"WeasyPrint PDF Engine: {msg}", category="PDF_ENGINE")
+                self.reporter.record_pdf_issue("WEASYPRINT_ERROR", "Global", msg)
+            elif record.levelno >= logging.WARNING:
+                self.reporter.warn(f"WeasyPrint PDF Engine: {msg}", category="PDF_ENGINE")
+                self.reporter.record_pdf_issue("WEASYPRINT_WARNING", "Global", msg)
 
 def flatten_nav(nav):
     pages = []
@@ -43,71 +60,176 @@ def adjust_paths(html_content, page_dir):
     pattern = r'\b(src|href)="([^"]*)"'
     return re.sub(pattern, replace_path, html_content)
 
-def generate_pdf(site_dir, mkdocs_yml_path, pdf_output_path):
-    site_name = "Documentation"
-    pages = []
-    if os.path.exists(mkdocs_yml_path):
-        try:
-            with open(mkdocs_yml_path, 'r', encoding='utf-8') as f:
-                config = yaml.safe_load(f) or {}
-                site_name = config.get('site_name', site_name)
-                nav = config.get('nav')
-                if nav:
-                    pages = flatten_nav(nav)
-        except Exception as e:
-            print(f"Warning: Could not parse {mkdocs_yml_path} for PDF generation: {e}")
-            
-    if not pages:
-        for root, dirs, files in os.walk(site_dir):
-            for file in files:
-                if file.endswith('.html') and file != '404.html':
-                    rel_path = os.path.relpath(os.path.join(root, file), site_dir)
-                    pages.append(rel_path)
-        pages.sort()
+def inspect_missing_files_in_html(html_content, site_dir, page_name, reporter=None):
+    """
+    Scans HTML content for embedded image, media, or stylesheet assets and checks if they exist on disk.
+    Logs warnings if required rendering assets are missing.
+    """
+    # Match <img src="...">, <object data="...">, <embed src="...">, <source src="...">, <link rel="stylesheet" href="...">
+    patterns = [
+        r'<img\b[^>]*\bsrc=["\']([^"\']+)["\']',
+        r'<object\b[^>]*\bdata=["\']([^"\']+)["\']',
+        r'<embed\b[^>]*\bsrc=["\']([^"\']+)["\']',
+        r'<source\b[^>]*\bsrc=["\']([^"\']+)["\']',
+        r'<image\b[^>]*\b(?:href|xlink:href)=["\']([^"\']+)["\']',
+        r'<link\b[^>]*\brel=["\']stylesheet["\'][^>]*\bhref=["\']([^"\']+)["\']',
+    ]
 
-    combined_body_parts = []
-    for page in pages:
-        if page.endswith('.html'):
-            found_path = os.path.join(site_dir, page)
-            page_rel_dir = os.path.dirname(page)
-        else:
-            if page == "index.md":
-                html_paths_to_try = ["index.html"]
+    for pat in patterns:
+        for match in re.finditer(pat, html_content, re.IGNORECASE):
+            path = match.group(1).strip()
+            if path.startswith(('http://', 'https://', '#', 'mailto:', 'tel:', 'data:')):
+                continue
+
+            target_path = os.path.normpath(os.path.join(site_dir, path))
+            if not os.path.exists(target_path):
+                msg = f"Asset file '{path}' referenced in page '{page_name}' does not exist at '{target_path}' for PDF rendering."
+                if reporter:
+                    reporter.warn(msg, category="PDF_MISSING_FILE")
+                    reporter.record_pdf_issue("MISSING_FILE", page_name, msg)
+
+def inspect_svg_bounding_boxes(html_content, page_name, reporter=None):
+    """
+    Inspects embedded inline SVGs for bounding dimensions (width, height, viewBox).
+    A4 printable width is approx 170mm (~643px at 96dpi), height approx 257mm (~971px).
+    Warns if diagram bounding box dimensions exceed printable page bounds without max-width constraint.
+    """
+    svg_blocks = re.findall(r'<svg\b[^>]*>(.*?)</svg>', html_content, re.DOTALL | re.IGNORECASE)
+    MAX_A4_WIDTH_PX = 643   # 170mm at 96dpi
+    MAX_A4_HEIGHT_PX = 971  # 257mm at 96dpi
+
+    for idx, svg_block in enumerate(svg_blocks, 1):
+        width_match = re.search(r'\bwidth=["\']([0-9.]+)(px|pt|mm|cm)?["\']', svg_block, re.IGNORECASE)
+        height_match = re.search(r'\bheight=["\']([0-9.]+)(px|pt|mm|cm)?["\']', svg_block, re.IGNORECASE)
+        viewbox_match = re.search(r'\bviewBox=["\']([0-9.\s,-]+)["\']', svg_block, re.IGNORECASE)
+
+        width_val = None
+        height_val = None
+
+        if width_match:
+            try:
+                width_val = float(width_match.group(1))
+                unit = width_match.group(2)
+                if unit == 'pt': width_val *= 1.333
+                elif unit == 'mm': width_val *= 3.779
+                elif unit == 'cm': width_val *= 37.79
+            except ValueError:
+                pass
+
+        if height_match:
+            try:
+                height_val = float(height_match.group(1))
+                unit = height_match.group(2)
+                if unit == 'pt': height_val *= 1.333
+                elif unit == 'mm': height_val *= 3.779
+                elif unit == 'cm': height_val *= 37.79
+            except ValueError:
+                pass
+
+        if (width_val is None or height_val is None) and viewbox_match:
+            try:
+                parts = [float(p) for p in re.split(r'[\s,]+', viewbox_match.group(1).strip()) if p]
+                if len(parts) >= 4:
+                    if width_val is None: width_val = parts[2]
+                    if height_val is None: height_val = parts[3]
+            except ValueError:
+                pass
+
+        if width_val and width_val > MAX_A4_WIDTH_PX:
+            msg = f"SVG diagram #{idx} in page '{page_name}' bounding box width ({width_val:.0f}px) exceeds A4 printable page width ({MAX_A4_WIDTH_PX}px)."
+            if reporter:
+                reporter.warn(msg, category="PDF_BOUNDING_BOX")
+                reporter.record_pdf_issue("BOUNDING_BOX_OVERFLOW", page_name, msg)
+
+        if height_val and height_val > MAX_A4_HEIGHT_PX:
+            msg = f"SVG diagram #{idx} in page '{page_name}' bounding box height ({height_val:.0f}px) exceeds A4 printable page height ({MAX_A4_HEIGHT_PX}px)."
+            if reporter:
+                reporter.warn(msg, category="PDF_BOUNDING_BOX")
+                reporter.record_pdf_issue("BOUNDING_BOX_OVERFLOW", page_name, msg)
+
+def generate_pdf(site_dir, mkdocs_yml_path, pdf_output_path, reporter=None):
+    # Attach WeasyPrint logger handler
+    weasy_logger = logging.getLogger('weasyprint')
+    log_handler = WeasyPrintLogHandler(reporter)
+    weasy_logger.addHandler(log_handler)
+
+    try:
+        site_name = "Documentation"
+        pages = []
+        if os.path.exists(mkdocs_yml_path):
+            try:
+                with open(mkdocs_yml_path, 'r', encoding='utf-8') as f:
+                    config = yaml.safe_load(f) or {}
+                    site_name = config.get('site_name', site_name)
+                    nav = config.get('nav')
+                    if nav:
+                        pages = flatten_nav(nav)
+            except Exception as e:
+                msg = f"Could not parse {mkdocs_yml_path} for PDF generation: {e}"
+                if reporter:
+                    reporter.warn(msg, category="PDF_CONFIG")
+
+        if not pages:
+            for root, dirs, files in os.walk(site_dir):
+                for file in files:
+                    if file.endswith('.html') and file != '404.html':
+                        rel_path = os.path.relpath(os.path.join(root, file), site_dir)
+                        pages.append(rel_path)
+            pages.sort()
+
+        combined_body_parts = []
+        for page in pages:
+            if page.endswith('.html'):
+                found_path = os.path.join(site_dir, page)
+                page_rel_dir = os.path.dirname(page)
             else:
-                name_no_ext = os.path.splitext(page)[0]
-                html_paths_to_try = [
-                    os.path.join(name_no_ext, "index.html"),
-                    name_no_ext + ".html"
-                ]
-                
-            found_path = None
-            page_rel_dir = ""
-            for rel_try in html_paths_to_try:
-                full_try = os.path.normpath(os.path.join(site_dir, rel_try))
-                if os.path.exists(full_try):
-                    found_path = full_try
-                    page_rel_dir = os.path.dirname(rel_try)
-                    break
+                if page == "index.md":
+                    html_paths_to_try = ["index.html"]
+                else:
+                    name_no_ext = os.path.splitext(page)[0]
+                    html_paths_to_try = [
+                        os.path.join(name_no_ext, "index.html"),
+                        name_no_ext + ".html"
+                    ]
                     
-        if not found_path or not os.path.exists(found_path):
-            continue
-            
-        try:
-            with open(found_path, 'r', encoding='utf-8') as f:
-                html_content = f.read()
-        except Exception:
-            continue
-            
-        content = extract_main_content(html_content)
-        content = adjust_paths(content, page_rel_dir)
-        
-        if combined_body_parts:
-            combined_body_parts.append('<div class="page-break"></div>')
-            
-        combined_body_parts.append(f'<section class="pdf-page" data-source="{page}">{content}</section>')
+                found_path = None
+                page_rel_dir = ""
+                for rel_try in html_paths_to_try:
+                    full_try = os.path.normpath(os.path.join(site_dir, rel_try))
+                    if os.path.exists(full_try):
+                        found_path = full_try
+                        page_rel_dir = os.path.dirname(rel_try)
+                        break
+                        
+            if not found_path or not os.path.exists(found_path):
+                msg = f"Page target '{page}' missing in built HTML site directory '{site_dir}'."
+                if reporter:
+                    reporter.warn(msg, category="PDF_MISSING_PAGE")
+                    reporter.record_pdf_issue("MISSING_PAGE", page, msg)
+                continue
+                
+            try:
+                with open(found_path, 'r', encoding='utf-8') as f:
+                    html_content = f.read()
+            except Exception as e:
+                msg = f"Failed to read page HTML file '{found_path}': {e}"
+                if reporter:
+                    reporter.error(msg, category="PDF_READ_ERROR")
+                continue
+                
+            # Perform diagnostic checks for missing files and SVG bounding boxes
+            inspect_missing_files_in_html(html_content, site_dir, page, reporter)
+            inspect_svg_bounding_boxes(html_content, page, reporter)
 
+            content = extract_main_content(html_content)
+            content = adjust_paths(content, page_rel_dir)
+            
+            if combined_body_parts:
+                combined_body_parts.append('<div class="page-break"></div>')
+                
+            combined_body_parts.append(f'<section class="pdf-page" data-source="{page}">{content}</section>')
 
-    master_html = f"""<!DOCTYPE html>
+        master_html = f"""<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
@@ -218,8 +340,6 @@ table.mkdocs-kit-csv-table th {{
     font-weight: 600 !important;
 }}
 </style>
-
-
 </head>
 <body>
 <div class="cover-page" style="page-break-after: always; text-align: center; padding-top: 5cm;">
@@ -232,5 +352,7 @@ table.mkdocs-kit-csv-table th {{
 </html>
 """
 
-    html_obj = HTML(string=master_html, base_url=site_dir)
-    html_obj.write_pdf(pdf_output_path)
+        html_obj = HTML(string=master_html, base_url=site_dir)
+        html_obj.write_pdf(pdf_output_path)
+    finally:
+        weasy_logger.removeHandler(log_handler)
