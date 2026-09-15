@@ -219,6 +219,10 @@ prepare_bundled_deps() {
         if [[ -f "/opt/gitea/plantuml.jar" ]]; then
             log_info "Copying PlantUML from /opt/gitea/plantuml.jar..."
             cp -L "/opt/gitea/plantuml.jar" "$plantuml_dir/plantuml.jar"
+        elif compgen -G "$HOME/plantuml*.jar" > /dev/null; then
+            local latest_jar=$(ls -t "$HOME"/plantuml*.jar | head -n 1)
+            log_info "Copying PlantUML from $latest_jar..."
+            cp -L "$latest_jar" "$plantuml_dir/plantuml.jar"
         elif [[ -f "/usr/share/plantuml/plantuml.jar" ]]; then
             log_info "Copying PlantUML from /usr/share/plantuml/plantuml.jar..."
             cp -L "/usr/share/plantuml/plantuml.jar" "$plantuml_dir/plantuml.jar"

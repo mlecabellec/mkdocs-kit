@@ -1,6 +1,7 @@
 import subprocess
 import tempfile
 import os
+import glob
 import re
 import json
 import yaml
@@ -89,6 +90,10 @@ def get_plantuml_cmd(puml_path):
             except Exception:
                 pass
             return [java_bin, '-Djava.awt.headless=true', '-jar', jar_path, '-tsvg', puml_path]
+        elif jar_path:
+            java_home = os.environ.get('JAVA_HOME', '')
+            java_bin = os.path.join(java_home, 'bin', 'java') if java_home and os.path.isfile(os.path.join(java_home, 'bin', 'java')) else (shutil.which('java') or 'java')
+            return [java_bin, '-Djava.awt.headless=true', '-jar', jar_path, '-tsvg', puml_path]
 
     # Check environment variable
     env_jar = os.environ.get('PLANTUML_JAR')
@@ -102,6 +107,14 @@ def get_plantuml_cmd(puml_path):
         java_home = os.environ.get('JAVA_HOME', '')
         java_bin = os.path.join(java_home, 'bin', 'java') if java_home and os.path.isfile(os.path.join(java_home, 'bin', 'java')) else 'java'
         return [java_bin, '-Djava.awt.headless=true', '-jar', '/opt/gitea/plantuml.jar', '-tsvg', puml_path]
+
+    # Check user home for modern plantuml jars (e.g. ~/plantuml-asl-*.jar)
+    home_dir = os.path.expanduser('~')
+    home_jars = sorted(glob.glob(os.path.join(home_dir, 'plantuml*.jar')), reverse=True)
+    if home_jars:
+        java_home = os.environ.get('JAVA_HOME', '')
+        java_bin = os.path.join(java_home, 'bin', 'java') if java_home and os.path.isfile(os.path.join(java_home, 'bin', 'java')) else (shutil.which('java') or 'java')
+        return [java_bin, '-Djava.awt.headless=true', '-jar', home_jars[0], '-tsvg', puml_path]
 
     # Check system plantuml executable
     plantuml_bin = shutil.which('plantuml')

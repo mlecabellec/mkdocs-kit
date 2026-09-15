@@ -219,7 +219,7 @@ A hierarchical decomposition of the total scope of work to be carried out by the
 Visualizes network topologies, subnets, and IP addresses.
 
 ```plantuml
-@startuml
+@startnwdiag
 nwdiag {
   network dmz {
     web01 [address = "192.168.1.10"];
@@ -231,6 +231,6 @@ nwdiag {
     db01 [address = "10.0.0.100", shape = database];
   }
 }
-@enduml
+@endnwdiag
 ```
 
