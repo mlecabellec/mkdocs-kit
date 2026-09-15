@@ -9,6 +9,8 @@ from mkdocs.commands.build import build as mkdocs_build
 from mkdocs.commands.serve import serve as mkdocs_serve
 from mkdocs_kit.pdf import generate_pdf
 from mkdocs_kit.man import generate_man_pages
+from mkdocs_kit.docx_generator import generate_docx
+from mkdocs_kit.confluence_exporter import export_confluence_package
 from mkdocs_kit.templates import MKDOCS_YML, INDEX_MD, DIAGRAMS_MD, MAN_MD_TEMPLATE
 from mkdocs_kit.reporter import BuildReporter
 
@@ -141,43 +143,78 @@ def cmd_build(args):
     active_reporter = reporter
 
     try:
-        # Step 1: HTML, Markdown & Diagram Processing
-        reporter.progress(
-            current_step=1,
-            total_steps=4,
-            title="Processing Markdown Pages, Render Diagrams & Validate Links",
-            done_tasks=[],
-            ongoing_task=f"Parsing config '{config_file}', compiling Markdown files and inline diagrams",
-            upcoming_tasks=["Compiling PDF Manual with WeasyPrint", "Generating UNIX Man Pages", "Publishing Summary Reports"]
-        )
-
         config = mkdocs.config.load_config(config_file=config_file)
         site_dir = config.get('site_dir', 'site')
         docs_dir = config.get('docs_dir', 'docs')
+        extra = config.get('extra', {})
+
+        # Resolve DOCX options
+        docx_cfg = config.get('docx') or extra.get('docx') or {}
+        docx_enabled = bool(args.docx_output or docx_cfg.get('enabled') or docx_cfg.get('output'))
+        docx_path = args.docx_output or docx_cfg.get('output') or os.path.join(os.path.dirname(config_file) or '.', 'documentation.docx')
+        docx_template = args.docx_template or docx_cfg.get('template')
+
+        # Resolve Confluence options
+        conf_cfg = config.get('confluence') or extra.get('confluence') or {}
+        conf_enabled = bool(args.confluence_output or conf_cfg.get('enabled') or conf_cfg.get('output'))
+        conf_path = args.confluence_output or conf_cfg.get('output') or os.path.join(os.path.dirname(config_file) or '.', 'confluence-export.zip')
+        conf_key = args.confluence_space_key or conf_cfg.get('space_key')
+        conf_name = getattr(args, 'confluence_space_name', None) or conf_cfg.get('space_name')
+        conf_format = args.confluence_format or conf_cfg.get('format', 'dual')
+
+        total_steps = 4 + (1 if docx_enabled else 0) + (1 if conf_enabled else 0)
+        current_step = 1
+
+        # Step 1: HTML, Markdown & Diagram Processing
+        upcoming = ["Link Validation", "PDF Manual Generation", "UNIX Man Pages"]
+        if docx_enabled: upcoming.append("MS-Word (.docx) Compilation")
+        if conf_enabled: upcoming.append("Confluence Package Export")
+        upcoming.append("Publishing Summary Reports")
+
+        reporter.progress(
+            current_step=current_step,
+            total_steps=total_steps,
+            title="Processing Markdown Pages, Render Diagrams & Validate Links",
+            done_tasks=[],
+            ongoing_task=f"Parsing config '{config_file}', compiling Markdown files and inline diagrams",
+            upcoming_tasks=upcoming
+        )
 
         mkdocs_build(config)
         reporter.log(f"HTML build complete! Output directory: '{site_dir}'")
 
-        # Step 2: Link & Directory Target Validation Summary
+        # Step 2: Link Validation
+        current_step += 1
+        upcoming_s2 = ["PDF Manual Generation", "UNIX Man Pages"]
+        if docx_enabled: upcoming_s2.append("MS-Word (.docx) Compilation")
+        if conf_enabled: upcoming_s2.append("Confluence Package Export")
+        upcoming_s2.append("Publishing Summary Reports")
+
         reporter.progress(
-            current_step=2,
-            total_steps=4,
+            current_step=current_step,
+            total_steps=total_steps,
             title="Link & Directory Target Validation",
             done_tasks=["Compiled Markdown pages & diagrams"],
             ongoing_task="Validating internal/external links and directory reference targets",
-            upcoming_tasks=["Compiling PDF Manual with WeasyPrint", "Generating UNIX Man Pages", "Publishing Summary Reports"]
+            upcoming_tasks=upcoming_s2
         )
         reporter.log(f"Analyzed {len(reporter.links)} links across documentation pages.")
 
         # Step 3: PDF Generation
+        current_step += 1
         pdf_path = args.pdf_output or os.path.join(os.path.dirname(config_file) or '.', 'documentation.pdf')
+        upcoming_s3 = ["UNIX Man Pages"]
+        if docx_enabled: upcoming_s3.append("MS-Word (.docx) Compilation")
+        if conf_enabled: upcoming_s3.append("Confluence Package Export")
+        upcoming_s3.append("Publishing Summary Reports")
+
         reporter.progress(
-            current_step=3,
-            total_steps=4,
+            current_step=current_step,
+            total_steps=total_steps,
             title="Compiling PDF Manual & Asset Inspection",
             done_tasks=["Compiled Markdown pages & diagrams", "Validated internal/external links"],
             ongoing_task=f"Generating PDF manual at '{pdf_path}' with WeasyPrint",
-            upcoming_tasks=["Generating UNIX Man Pages", "Publishing Summary Reports"]
+            upcoming_tasks=upcoming_s3
         )
 
         try:
@@ -189,14 +226,20 @@ def cmd_build(args):
             reporter.error(f"Error generating PDF: {e}", category="PDF_BUILD")
 
         # Step 4: Man Page Generation
+        current_step += 1
         man_output_dir = os.path.join(site_dir, 'man')
+        upcoming_s4 = []
+        if docx_enabled: upcoming_s4.append("MS-Word (.docx) Compilation")
+        if conf_enabled: upcoming_s4.append("Confluence Package Export")
+        upcoming_s4.append("Publishing Summary Reports")
+
         reporter.progress(
-            current_step=4,
-            total_steps=4,
+            current_step=current_step,
+            total_steps=total_steps,
             title="Generating UNIX Man Pages",
             done_tasks=["Compiled Markdown pages & diagrams", "Validated internal/external links", "Generated PDF manual"],
             ongoing_task=f"Scanning '{docs_dir}' and building troff man pages in '{man_output_dir}'",
-            upcoming_tasks=["Publishing Summary Reports"]
+            upcoming_tasks=upcoming_s4
         )
 
         try:
@@ -208,6 +251,50 @@ def cmd_build(args):
             reporter.log(f"Generated {count} man pages successfully.")
         except Exception as e:
             reporter.error(f"Error generating man pages: {e}", category="MAN_BUILD")
+
+        # Optional Step 5: DOCX Generation
+        if docx_enabled:
+            current_step += 1
+            upcoming_docx = []
+            if conf_enabled: upcoming_docx.append("Confluence Package Export")
+            upcoming_docx.append("Publishing Summary Reports")
+
+            reporter.progress(
+                current_step=current_step,
+                total_steps=total_steps,
+                title="Compiling MS-Word (.docx) Document",
+                done_tasks=["Compiled Markdown pages & diagrams", "Validated links", "Generated PDF", "Generated Man pages"],
+                ongoing_task=f"Generating consolidated MS-Word document at '{docx_path}'",
+                upcoming_tasks=upcoming_docx
+            )
+
+            try:
+                generate_docx(site_dir, config_file, docx_path, template_path=docx_template, reporter=reporter)
+                site_docx_path = os.path.join(site_dir, os.path.basename(docx_path))
+                shutil.copy2(docx_path, site_docx_path)
+                reporter.log(f"DOCX generated successfully at '{docx_path}'.")
+            except Exception as e:
+                reporter.error(f"Error generating MS-Word (.docx): {e}", category="DOCX_BUILD")
+
+        # Optional Step 6: Confluence Package Export
+        if conf_enabled:
+            current_step += 1
+            reporter.progress(
+                current_step=current_step,
+                total_steps=total_steps,
+                title="Packaging Confluence Space Export Archive",
+                done_tasks=["Compiled Markdown pages & diagrams", "Validated links", "Generated PDF", "Generated Man pages"] + (["Generated DOCX"] if docx_enabled else []),
+                ongoing_task=f"Packaging Confluence export archive at '{conf_path}' (Space: {conf_key or 'auto'})",
+                upcoming_tasks=["Publishing Summary Reports"]
+            )
+
+            try:
+                export_confluence_package(site_dir, config_file, conf_path, space_key=conf_key, space_name=conf_name, package_format=conf_format, reporter=reporter)
+                site_conf_path = os.path.join(site_dir, os.path.basename(conf_path))
+                shutil.copy2(conf_path, site_conf_path)
+                reporter.log(f"Confluence package created successfully at '{conf_path}'.")
+            except Exception as e:
+                reporter.error(f"Error creating Confluence package: {e}", category="CONFLUENCE_BUILD")
 
         # Print all structured summary reports
         reporter.print_summary_reports()
@@ -238,10 +325,21 @@ def main():
     parser_init.add_argument("directory", nargs="?", help="Directory to initialize (default: current directory)")
     
     # Build command
-    parser_build = subparsers.add_parser("build", help="Build HTML, PDF, and Man pages documentation")
+    parser_build = subparsers.add_parser("build", help="Build HTML, PDF, Man pages, DOCX, and Confluence documentation")
     parser_build.add_argument("-c", "--config", help="Path to mkdocs.yml config file")
     parser_build.add_argument("-o", "--pdf-output", help="Path to output PDF file")
     parser_build.add_argument("-l", "--log-file", default="mkdocs-kit.log", help="Path to log file (default: mkdocs-kit.log)")
+    parser_build.add_argument("-v", "--verbose", action="store_true", default=True, help="Enable verbose log output (default: True)")
+    
+    # DOCX Options
+    parser_build.add_argument("-d", "--docx-output", help="Path to output MS-Word (.docx) file")
+    parser_build.add_argument("--docx-template", help="Path to custom reference MS-Word template (.docx)")
+    
+    # Confluence Options
+    parser_build.add_argument("--confluence-output", help="Path to output Confluence (.zip) import package")
+    parser_build.add_argument("--confluence-space-key", help="Confluence Space Key (e.g. DOCS)")
+    parser_build.add_argument("--confluence-space-name", help="Confluence Space Name")
+    parser_build.add_argument("--confluence-format", choices=["dual", "space-backup", "rest-bundle"], default="dual", help="Confluence export package format (default: dual)")
     
     # Serve command
     parser_serve = subparsers.add_parser("serve", help="Serve HTML documentation locally")

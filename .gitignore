@@ -20,6 +20,8 @@ test_project/documentation.pdf
 site/
 man/
 *.pdf
+*.docx
+*.zip
 *.log
 /mkdocs-kit
 src/mkdocs_kit/bundled/

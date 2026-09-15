@@ -193,8 +193,8 @@ setup_python_env() {
     log_info "Installing setuptools<82.0.0 (required for blockdiag compatibility)..."
     "$venv_pip" install "setuptools<82.0.0"
 
-    log_info "Installing Python dependencies (mkdocs, material, weasyprint, wireviz, nwdiag, bit_field, pyinstaller)..."
-    "$venv_pip" install mkdocs mkdocs-material weasyprint wireviz nwdiag bit_field pyinstaller
+    log_info "Installing Python dependencies (mkdocs, material, weasyprint, wireviz, nwdiag, bit_field, python-docx, cairosvg, pyinstaller)..."
+    "$venv_pip" install mkdocs mkdocs-material weasyprint wireviz nwdiag bit_field python-docx cairosvg pyinstaller
 
     log_info "Installing local mkdocs-kit package in editable mode..."
     cd "$ROOT_DIR"
@@ -274,7 +274,7 @@ run_unit_tests() {
 
     log_step "Executing Python unit test suite..."
     cd "$ROOT_DIR"
-    "$VENV_DIR/bin/python3" -m unittest tests/test_all.py
+    "$VENV_DIR/bin/python3" -m unittest discover -s tests
     log_success "All unit tests passed successfully."
 }
 
@@ -343,7 +343,7 @@ Architecture: ${deb_arch}
 Depends: graphviz, libcairo2, libpango-1.0-0, libpangocairo-1.0-0, libgdk-pixbuf-2.0-0 | libgdk-pixbuf2.0-0, libglib2.0-0, shared-mime-info
 Description: Single-Binary Documentation Environment
  MkDocs Kit is a wrapped, highly integrated documentation generation environment
- compiled into a single standalone binary supporting HTML, PDF, and UNIX Man pages.
+ compiled into a single standalone binary supporting HTML, PDF, MS-Word (DOCX), Confluence Packages, and UNIX Man pages.
 EOF
 
     chmod 644 "$staging_dir/DEBIAN/control"

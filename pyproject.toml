@@ -17,6 +17,8 @@ dependencies = [
     "nwdiag>=3.0.0",
     "bit_field>=1.0.1",
     "pyyaml>=6.0",
+    "python-docx>=1.1.0",
+    "cairosvg>=2.7.0",
 ]
 
 [project.scripts]
