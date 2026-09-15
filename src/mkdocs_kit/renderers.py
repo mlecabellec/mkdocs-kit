@@ -33,6 +33,8 @@ def patched_resolve(self, requirements, *args, **kwargs):
 pkg_resources.WorkingSet.resolve = patched_resolve
 
 
+import shutil
+import sys
 import rackdiag.parser
 import rackdiag.builder
 import rackdiag.drawer
@@ -45,7 +47,72 @@ import blockdiag.drawer
 import nwdiag.parser
 import nwdiag.builder
 import nwdiag.drawer
+import nwdiag.elements
+import blockdiag.elements
 
+# Support description attribute in nwdiag networks and groups (alias for label)
+if not hasattr(nwdiag.elements.Network, 'description'):
+    nwdiag.elements.Network.description = property(
+        lambda s: s.label,
+        lambda s, v: setattr(s, 'label', v)
+    )
+if not hasattr(blockdiag.elements.NodeGroup, 'description'):
+    blockdiag.elements.NodeGroup.description = property(
+        lambda s: s.label,
+        lambda s, v: setattr(s, 'label', v)
+    )
+
+
+def get_plantuml_cmd(puml_path):
+    """
+    Locates the PlantUML execution command, prioritizing bundled JRE and PlantUML jar,
+    then environment variables, local system installations, and finally system plantuml executable.
+    """
+    candidate_bases = []
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        candidate_bases.append(sys._MEIPASS)
+
+    pkg_dir = os.path.dirname(os.path.abspath(__file__))
+    candidate_bases.append(pkg_dir)
+    candidate_bases.append(os.path.join(pkg_dir, 'bundled'))
+
+    for base in candidate_bases:
+        java_bin = os.path.join(base, 'jre', 'bin', 'java')
+        jar_candidates = [
+            os.path.join(base, 'plantuml', 'plantuml.jar'),
+            os.path.join(base, 'plantuml.jar'),
+        ]
+        jar_path = next((j for j in jar_candidates if os.path.isfile(j)), None)
+        if os.path.isfile(java_bin) and jar_path:
+            try:
+                os.chmod(java_bin, 0o755)
+            except Exception:
+                pass
+            return [java_bin, '-Djava.awt.headless=true', '-jar', jar_path, '-tsvg', puml_path]
+
+    # Check environment variable
+    env_jar = os.environ.get('PLANTUML_JAR')
+    if env_jar and os.path.isfile(env_jar):
+        java_home = os.environ.get('JAVA_HOME', '')
+        java_bin = os.path.join(java_home, 'bin', 'java') if java_home and os.path.isfile(os.path.join(java_home, 'bin', 'java')) else 'java'
+        return [java_bin, '-Djava.awt.headless=true', '-jar', env_jar, '-tsvg', puml_path]
+
+    # Check local modern plantuml.jar if present
+    if os.path.isfile('/opt/gitea/plantuml.jar'):
+        java_home = os.environ.get('JAVA_HOME', '')
+        java_bin = os.path.join(java_home, 'bin', 'java') if java_home and os.path.isfile(os.path.join(java_home, 'bin', 'java')) else 'java'
+        return [java_bin, '-Djava.awt.headless=true', '-jar', '/opt/gitea/plantuml.jar', '-tsvg', puml_path]
+
+    # Check system plantuml executable
+    plantuml_bin = shutil.which('plantuml')
+    if plantuml_bin:
+        return [plantuml_bin, '-tsvg', puml_path]
+
+    # Fallback to system plantuml.jar
+    if os.path.isfile('/usr/share/plantuml/plantuml.jar'):
+        return ['java', '-Djava.awt.headless=true', '-jar', '/usr/share/plantuml/plantuml.jar', '-tsvg', puml_path]
+
+    return ['plantuml', '-tsvg', puml_path]
 
 
 def render_plantuml(src):
@@ -53,20 +120,28 @@ def render_plantuml(src):
         puml_path = os.path.join(tmpdir, 'diagram.puml')
         with open(puml_path, 'w', encoding='utf-8') as f:
             f.write(src)
-        
+
+        cmd = get_plantuml_cmd(puml_path)
         try:
-            # Use system plantuml command (which is version 1.2020.02 on this system)
-            subprocess.run(['plantuml', '-tsvg', puml_path], capture_output=True, text=True, check=True)
+            subprocess.run(cmd, capture_output=True, text=True, check=True)
         except subprocess.CalledProcessError as e:
-            raise RuntimeError(f"PlantUML rendering failed: {e.stderr or e.stdout}")
-        
+            err_msg = (e.stderr or "") + ("\n" + e.stdout if e.stdout else "")
+            raise RuntimeError(f"PlantUML rendering failed: {err_msg.strip()}")
+        except FileNotFoundError as e:
+            raise RuntimeError(f"PlantUML command not found ({cmd[0]}): {e}")
+
         svg_files = [f for f in os.listdir(tmpdir) if f.endswith('.svg')]
         if not svg_files:
             raise RuntimeError("PlantUML did not generate an SVG file.")
-        
+
         svg_path = os.path.join(tmpdir, svg_files[0])
         with open(svg_path, 'r', encoding='utf-8') as f:
-            return f.read()
+            svg_content = f.read()
+
+        if '<text fill="#FF0000"' in svg_content and 'Syntax Error?' in svg_content:
+            raise RuntimeError("PlantUML generated a Syntax Error diagram")
+
+        return svg_content
 
 def render_wireviz(src):
     try:

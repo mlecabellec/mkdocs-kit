@@ -12,6 +12,7 @@ from mkdocs_kit.renderers import (
     render_wireviz,
     render_rackdiag,
     render_packetdiag,
+    render_nwdiag,
     render_bytefield,
 )
 from mkdocs_kit.csv_renderer import render_csv, parse_csv_spec, apply_filter, apply_sort
@@ -146,6 +147,47 @@ class TestDiagrams(unittest.TestCase):
             self.assertIn("Type", svg)
         except Exception as e:
             self.fail(f"ByteField YAML rendering failed: {e}")
+
+    def test_plantuml_nwdiag(self):
+        src = """
+        @startnwdiag
+        nwdiag {
+            network dmz {
+                description = "DMZ network"
+                address = "192.168.1.0/24"
+                web01 [address = "192.168.1.10", description = "Web Server"];
+            }
+        }
+        @endnwdiag
+        """
+        try:
+            svg = render_plantuml(src)
+            self.assertIn("<svg", svg)
+            self.assertIn("Web Server", svg)
+            self.assertIn("192.168.1.10", svg)
+        except Exception as e:
+            self.fail(f"PlantUML nwdiag rendering failed: {e}")
+
+    def test_nwdiag_description(self):
+        src = """
+        nwdiag {
+            network dmz {
+                description = "DMZ network";
+                address = "192.168.1.0/24";
+                web01 [address = "192.168.1.10", description = "Web Server"];
+            }
+            group {
+                description = "Group 1";
+                web01;
+            }
+        }
+        """
+        try:
+            svg = render_nwdiag(src)
+            self.assertIn("<svg", svg)
+            self.assertIn("web01", svg)
+        except Exception as e:
+            self.fail(f"NwDiag rendering failed: {e}")
 
 class TestManPage(unittest.TestCase):
     def test_convert_md_to_man(self):

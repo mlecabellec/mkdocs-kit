@@ -52,7 +52,7 @@ def adjust_paths(html_content, page_dir):
     def replace_path(match):
         attr = match.group(1)
         path = match.group(2)
-        if path.startswith(('http://', 'https://', '/', '#', 'mailto:', 'tel:')):
+        if path.startswith(('http://', 'https://', '/', '#', 'mailto:', 'tel:', 'data:')):
             return match.group(0)
         new_path = os.path.normpath(os.path.join(page_dir, path))
         return f'{attr}="{new_path}"'

@@ -154,7 +154,7 @@ check_system_deps() {
     log_step "Verifying system build dependencies for Debian/Ubuntu..."
     local missing_tools=()
 
-    local required_tools=("python3" "git" "dpkg-deb" "plantuml" "graphviz")
+    local required_tools=("python3" "git" "dpkg-deb" "graphviz")
     for tool in "${required_tools[@]}"; do
         if ! command -v "$tool" &>/dev/null; then
             missing_tools+=("$tool")
@@ -164,7 +164,7 @@ check_system_deps() {
     if [[ ${#missing_tools[@]} -gt 0 ]]; then
         log_error "Missing required system tools: ${missing_tools[*]}"
         log_info "Install them using:"
-        log_info "  sudo apt-get update && sudo apt-get install -y python3 python3-venv python3-pip python3-dev build-essential graphviz plantuml libcairo2-dev libpango1.0-dev libffi-dev shared-mime-info dpkg"
+        log_info "  sudo apt-get update && sudo apt-get install -y python3 python3-venv python3-pip python3-dev build-essential graphviz libcairo2-dev libpango1.0-dev libffi-dev shared-mime-info dpkg"
         exit 1
     fi
 
@@ -204,6 +204,62 @@ setup_python_env() {
 }
 
 # ------------------------------------------------------------------------------
+# Step 2b: Prepare Bundled JRE and PlantUML
+# ------------------------------------------------------------------------------
+prepare_bundled_deps() {
+    log_step "Preparing bundled JRE and PlantUML..."
+    local bundled_dir="$ROOT_DIR/src/mkdocs_kit/bundled"
+    local jre_dir="$bundled_dir/jre"
+    local plantuml_dir="$bundled_dir/plantuml"
+
+    mkdir -p "$plantuml_dir"
+
+    # Provision PlantUML jar if missing
+    if [[ ! -f "$plantuml_dir/plantuml.jar" ]]; then
+        if [[ -f "/opt/gitea/plantuml.jar" ]]; then
+            log_info "Copying PlantUML from /opt/gitea/plantuml.jar..."
+            cp -L "/opt/gitea/plantuml.jar" "$plantuml_dir/plantuml.jar"
+        elif [[ -f "/usr/share/plantuml/plantuml.jar" ]]; then
+            log_info "Copying PlantUML from /usr/share/plantuml/plantuml.jar..."
+            cp -L "/usr/share/plantuml/plantuml.jar" "$plantuml_dir/plantuml.jar"
+        else
+            log_warn "PlantUML jar not found locally; downloading official ASL jar..."
+            curl -fsSL -o "$plantuml_dir/plantuml.jar" "https://github.com/plantuml/plantuml/releases/download/v1.2024.6/plantuml-asl-1.2024.6.jar" || true
+        fi
+    fi
+
+    # Provision minimal JRE with jlink if missing
+    if [[ ! -d "$jre_dir" ]] || [[ ! -f "$jre_dir/bin/java" ]]; then
+        log_info "Building minimal JRE with jlink..."
+        local jlink_bin=""
+        if [[ -n "${JAVA_HOME:-}" ]] && [[ -x "${JAVA_HOME}/bin/jlink" ]]; then
+            jlink_bin="${JAVA_HOME}/bin/jlink"
+        elif [[ -x "/usr/lib/jvm/java-21-openjdk-amd64/bin/jlink" ]]; then
+            jlink_bin="/usr/lib/jvm/java-21-openjdk-amd64/bin/jlink"
+        elif command -v jlink &>/dev/null; then
+            jlink_bin="$(command -v jlink)"
+        fi
+
+        if [[ -n "$jlink_bin" ]]; then
+            rm -rf "$jre_dir"
+            "$jlink_bin" \
+                --add-modules java.base,java.desktop,java.logging,java.xml,jdk.unsupported \
+                --strip-debug \
+                --no-man-pages \
+                --no-header-files \
+                --compress=2 \
+                --output "$jre_dir"
+            rm -rf "$jre_dir/legal" "$jre_dir/bin/keytool"
+            log_success "Minimal JRE successfully created at $jre_dir."
+        else
+            log_warn "jlink not found. Skipping JRE bundling."
+        fi
+    else
+        log_info "Bundled JRE already exists at $jre_dir."
+    fi
+}
+
+# ------------------------------------------------------------------------------
 # Step 3: Run Unit Test Suite
 # ------------------------------------------------------------------------------
 run_unit_tests() {
@@ -226,7 +282,7 @@ build_standalone_binary() {
     cd "$ROOT_DIR"
 
     # Execute PyInstaller with project spec file
-    "$VENV_DIR/bin/pyinstaller" --noconfirm mkdocs-kit.spec
+    "$VENV_DIR/bin/python3" -m PyInstaller --noconfirm mkdocs-kit.spec
 
     local binary_path="$DIST_DIR/mkdocs-kit"
     if [[ ! -f "$binary_path" ]]; then
@@ -280,7 +336,7 @@ Section: utils
 Priority: optional
 Maintainer: Mickael Lecabellec <mickael.lecabellec@gmail.com>
 Architecture: ${deb_arch}
-Depends: graphviz, plantuml, libcairo2, libpango-1.0-0, libpangocairo-1.0-0, libgdk-pixbuf-2.0-0 | libgdk-pixbuf2.0-0, libglib2.0-0, shared-mime-info
+Depends: graphviz, libcairo2, libpango-1.0-0, libpangocairo-1.0-0, libgdk-pixbuf-2.0-0 | libgdk-pixbuf2.0-0, libglib2.0-0, shared-mime-info
 Description: Single-Binary Documentation Environment
  MkDocs Kit is a wrapped, highly integrated documentation generation environment
  compiled into a single standalone binary supporting HTML, PDF, and UNIX Man pages.
@@ -337,6 +393,7 @@ main() {
 
     check_system_deps
     setup_python_env
+    prepare_bundled_deps
     run_unit_tests
     build_standalone_binary
     package_debian
