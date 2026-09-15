@@ -64,6 +64,8 @@ jobs:
             build-essential \
             graphviz \
             plantuml \
+            default-jre-headless \
+            curl \
             libcairo2-dev \
             libpango1.0-dev \
             libffi-dev \
@@ -89,7 +91,8 @@ jobs:
             gdk-pixbuf2-devel \
             libffi-devel \
             shared-mime-info \
-            rpm-build
+            rpm-build \
+            curl
 
       - name: Install dependencies (Arch Linux)
         if: matrix.pkg_type == 'arch'
@@ -106,7 +109,22 @@ jobs:
             pango \
             gdk-pixbuf2 \
             shared-mime-info \
-            sudo
+            sudo \
+            curl
+
+      - name: Prepare bundled PlantUML and JRE
+        shell: bash
+        run: |
+          mkdir -p src/mkdocs_kit/bundled/plantuml
+          if [ ! -f src/mkdocs_kit/bundled/plantuml/plantuml.jar ]; then
+            curl -fsSL -o src/mkdocs_kit/bundled/plantuml/plantuml.jar "https://github.com/plantuml/plantuml/releases/download/v1.2024.6/plantuml-asl-1.2024.6.jar" || true
+          fi
+          if command -v jlink &>/dev/null; then
+            mkdir -p src/mkdocs_kit/bundled/jre
+            jlink --add-modules java.base,java.desktop,java.logging,java.xml,jdk.unsupported \
+                  --strip-debug --no-man-pages --no-header-files --compress=2 \
+                  --output src/mkdocs_kit/bundled/jre || true
+          fi
 
       - name: Build standalone binary
         shell: bash
@@ -115,7 +133,7 @@ jobs:
           source .venv/bin/activate
           pip install --upgrade pip
           pip install "setuptools<82.0.0"
-          pip install mkdocs mkdocs-material weasyprint wireviz nwdiag bit_field pyinstaller
+          pip install pyinstaller
           pip install -e .
           pyinstaller mkdocs-kit.spec
 
@@ -123,7 +141,7 @@ jobs:
         shell: bash
         run: |
           source .venv/bin/activate
-          python3 -m unittest tests/test_all.py
+          python3 -m unittest discover -s tests
 
       - name: Test precompiled binary
         run: |

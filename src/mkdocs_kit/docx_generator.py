@@ -88,13 +88,13 @@ def _add_hyperlink(paragraph, url, text, color="004B87", underline=True):
     """
     part = paragraph.part
     r_id = part.relate_to(url, docx.opc.constants.RELATIONSHIP_TYPE.HYPERLINK, is_external=True)
-
+    u_xml = '<w:u w:val="single"/>' if underline else ''
     hyperlink = parse_xml(
         f'<w:hyperlink {nsdecls("w", "r")} r:id="{r_id}" w:history="1">\n'
         f'  <w:r>\n'
         f'    <w:rPr>\n'
         f'      <w:color w:val="{color}"/>\n'
-        f'      {"<w:u w:val=\"single\"/>" if underline else ""}\n'
+        f'      {u_xml}\n'
         f'    </w:rPr>\n'
         f'    <w:t xml:space="preserve">{text}</w:t>\n'
         f'  </w:r>\n'
