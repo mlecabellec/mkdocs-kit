@@ -29,7 +29,7 @@ jobs:
       - name: Install System Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y plantuml graphviz libpango-1.0-0 libharfbuzz0b libpangoft2-1.0-0 libcairo2 libgdk-pixbuf-2.0-0 default-jre-headless curl
+          sudo apt-get install -y plantuml graphviz libpango-1.0-0 libharfbuzz0b libpangoft2-1.0-0 libcairo2 libgdk-pixbuf-2.0-0 default-jre-headless libxml2-dev libxslt1-dev curl
 
       - name: Set up Python
         uses: actions/setup-python@v5

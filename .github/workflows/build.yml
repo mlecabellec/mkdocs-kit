@@ -69,6 +69,8 @@ jobs:
             libcairo2-dev \
             libpango1.0-dev \
             libffi-dev \
+            libxml2-dev \
+            libxslt1-dev \
             shared-mime-info
 
       - name: Install dependencies (Fedora)
@@ -90,6 +92,8 @@ jobs:
             pango-devel \
             gdk-pixbuf2-devel \
             libffi-devel \
+            libxml2-devel \
+            libxslt-devel \
             shared-mime-info \
             rpm-build \
             curl
@@ -108,6 +112,8 @@ jobs:
             cairo \
             pango \
             gdk-pixbuf2 \
+            libxml2 \
+            libxslt \
             shared-mime-info \
             sudo \
             curl
