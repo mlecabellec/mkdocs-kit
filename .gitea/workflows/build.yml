@@ -11,6 +11,7 @@ jobs:
   build-and-package:
     name: Package (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    if: startsWith(gitea.server_url, 'https://gitea2.lecabellec.fr')
     strategy:
       fail-fast: false
       matrix:
@@ -42,6 +43,8 @@ jobs:
 
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          github-server-url: https://gitea2.lecabellec.fr
 
       - name: Install dependencies (Debian)
         if: matrix.os == 'debian-12' || matrix.os == 'debian-13'

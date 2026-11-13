@@ -11,10 +11,13 @@ jobs:
   build-docs:
     name: Build Documentation Site & PDF Manual
     runs-on: ubuntu-latest
+    if: startsWith(gitea.server_url, 'https://gitea2.lecabellec.fr')
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          github-server-url: https://gitea2.lecabellec.fr
 
       - name: Install System Dependencies
         run: |
