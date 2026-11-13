@@ -26,6 +26,27 @@ jobs:
             pkg_type: arch
 
     steps:
+      - name: "Diagnostic: Environment & Runner Context"
+        env:
+          CTX_RUNNER: ${{ toJSON(runner) }}
+          CTX_STRATEGY: ${{ toJSON(strategy) }}
+          CTX_MATRIX: ${{ toJSON(matrix) }}
+          CTX_GITEA: ${{ toJSON(gitea) }}
+        run: |
+          echo "=== Host / Container OS ==="
+          cat /etc/os-release 2>/dev/null || true
+          uname -a
+          id
+          pwd
+          df -h . || true
+          echo "=== Runner Context ==="
+          printf '%s\n' "$CTX_RUNNER"
+          echo "=== Strategy / Matrix Context ==="
+          printf '%s\n' "$CTX_STRATEGY"
+          printf '%s\n' "$CTX_MATRIX"
+          echo "=== Gitea Context (token redacted) ==="
+          printf '%s\n' "$CTX_GITEA" | sed 's/"token":[[:space:]]*"[^"]*"/"token": "***"/g'
+
       - name: Install Node.js, Git, and CA certificates (Debian)
         if: matrix.os == 'debian-12' || matrix.os == 'debian-13'
         run: |
@@ -117,6 +138,24 @@ jobs:
             shared-mime-info \
             sudo \
             curl
+
+      - name: "Diagnostic: Workspace & Toolchain Check"
+        run: |
+          echo "=== Workspace Files ==="
+          ls -la
+          if [ -d .git ]; then
+            git status -sb || true
+            git remote -v || true
+            git log -1 --oneline || true
+          fi
+          echo "=== Available Tools ==="
+          for cmd in node git python3 cmake gcc g++ make java mvn podman docker curl; do
+            if command -v "$cmd" >/dev/null 2>&1; then
+              printf "%-10s %s\n" "$cmd:" "$(command -v "$cmd")"
+            else
+              printf "%-10s missing\n" "$cmd:"
+            fi
+          done
 
       - name: Prepare bundled PlantUML and JRE
         shell: bash
@@ -212,3 +251,10 @@ jobs:
             *.deb
             *.pkg.tar.zst
             *.rpm
+
+      - name: "Diagnostic: Post-Run Summary"
+        if: always()
+        run: |
+          echo "Job Status: ${{ job.status }}"
+          df -h . || true
+          ls -la
