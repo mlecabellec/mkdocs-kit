@@ -52,13 +52,71 @@ def adjust_paths(html_content, page_dir):
     def replace_path(match):
         attr = match.group(1)
         path = match.group(2)
-        if path.startswith(('http://', 'https://', '/', '#', 'mailto:', 'tel:', 'data:')):
+        if path.startswith(('http://', 'https://', '/', '#', 'mailto:', 'tel:', 'data:', 'file:')):
             return match.group(0)
         new_path = os.path.normpath(os.path.join(page_dir, path))
         return f'{attr}="{new_path}"'
         
     pattern = r'\b(src|href)="([^"]*)"'
     return re.sub(pattern, replace_path, html_content)
+
+
+def build_page_anchor_id(rel_html_path, used_ids):
+    """Generates a unique, deterministic HTML anchor ID for a compiled site page."""
+    base = os.path.splitext(rel_html_path.replace(os.sep, '/'))[0]
+    slug = re.sub(r'[^a-zA-Z0-9_-]', '-', base).strip('-') or 'index'
+    candidate = f"doc-page-{slug}"
+    if candidate not in used_ids:
+        used_ids.add(candidate)
+        return candidate
+    suffix = 2
+    while f"{candidate}-{suffix}" in used_ids:
+        suffix += 1
+    unique_id = f"{candidate}-{suffix}"
+    used_ids.add(unique_id)
+    return unique_id
+
+
+def rewrite_internal_pdf_links(body_html, page_anchor_map):
+    """
+    Rewrites relative HTML page hyperlinks (<a href="page.html">) into internal
+    PDF anchor references (<a href="#doc-page-...">) so WeasyPrint emits /GoTo
+    actions instead of external file:// URI annotations.
+    """
+    if not page_anchor_map:
+        return body_html
+
+    # Count occurrences of id="..." in the combined body so we only target
+    # fragment IDs directly when they are unambiguous across all pages.
+    id_counts = {}
+    for id_match in re.finditer(r'\bid=(["\'])([^"\']+)\1', body_html):
+        anchor = id_match.group(2)
+        id_counts[anchor] = id_counts.get(anchor, 0) + 1
+
+    def replace_href(match):
+        prefix = match.group(1)
+        quote = match.group(2)
+        href = match.group(3)
+
+        if not href or href.startswith(('http://', 'https://', '/', '#', 'mailto:', 'tel:', 'data:', 'file:', 'javascript:')):
+            return match.group(0)
+
+        path_part, _, fragment = href.partition('#')
+        norm_path = os.path.normpath(path_part).replace(os.sep, '/') if path_part else ''
+
+        target_section_id = page_anchor_map.get(norm_path)
+        if not target_section_id and path_part.endswith('/'):
+            target_section_id = page_anchor_map.get(norm_path + '/')
+
+        if target_section_id is None:
+            return match.group(0)
+
+        if fragment and id_counts.get(fragment, 0) == 1:
+            return f'{prefix}{quote}#{fragment}{quote}'
+
+        return f'{prefix}{quote}#{target_section_id}{quote}'
+
+    return re.sub(r'(<a\b[^>]*?\s+href=)(["\'])([^"\']*)\2', replace_href, body_html, flags=re.IGNORECASE)
 
 def inspect_missing_files_in_html(html_content, site_dir, page_name, reporter=None):
     """
@@ -178,6 +236,8 @@ def generate_pdf(site_dir, mkdocs_yml_path, pdf_output_path, reporter=None):
             pages.sort()
 
         combined_body_parts = []
+        page_anchor_map = {}
+        used_anchor_ids = set()
         for page in pages:
             if page.endswith('.html'):
                 found_path = os.path.join(site_dir, page)
@@ -221,13 +281,26 @@ def generate_pdf(site_dir, mkdocs_yml_path, pdf_output_path, reporter=None):
             inspect_missing_files_in_html(html_content, site_dir, page, reporter)
             inspect_svg_bounding_boxes(html_content, page, reporter)
 
+            rel_html_path = os.path.relpath(found_path, site_dir).replace(os.sep, '/')
+            page_anchor_id = build_page_anchor_id(rel_html_path, used_anchor_ids)
+            page_anchor_map[rel_html_path] = page_anchor_id
+            if rel_html_path == 'index.html':
+                page_anchor_map['.'] = page_anchor_id
+                page_anchor_map['./'] = page_anchor_id
+            elif rel_html_path.endswith('/index.html'):
+                dir_alias = rel_html_path[:-len('/index.html')]
+                page_anchor_map[dir_alias] = page_anchor_id
+                page_anchor_map[dir_alias + '/'] = page_anchor_id
+
             content = extract_main_content(html_content)
             content = adjust_paths(content, page_rel_dir)
             
             if combined_body_parts:
                 combined_body_parts.append('<div class="page-break"></div>')
                 
-            combined_body_parts.append(f'<section class="pdf-page" data-source="{page}">{content}</section>')
+            combined_body_parts.append(f'<section class="pdf-page" id="{page_anchor_id}" data-source="{page}">{content}</section>')
+
+        combined_body = rewrite_internal_pdf_links("".join(combined_body_parts), page_anchor_map)
 
         master_html = f"""<!DOCTYPE html>
 <html>
@@ -347,7 +420,7 @@ table.mkdocs-kit-csv-table th {{
     <p style="font-size: 14pt; color: #666;">Generated Documentation Reference</p>
     <p style="font-size: 11pt; color: #999; margin-top: 5cm;">Date: {datetime.date.today().strftime("%B %d, %Y")}</p>
 </div>
-{"".join(combined_body_parts)}
+{combined_body}
 </body>
 </html>
 """

@@ -154,12 +154,16 @@ check_system_deps() {
     log_step "Verifying system build dependencies for Debian/Ubuntu..."
     local missing_tools=()
 
-    local required_tools=("python3" "git" "dpkg-deb" "graphviz")
+    local required_tools=("python3" "git" "dpkg-deb")
     for tool in "${required_tools[@]}"; do
         if ! command -v "$tool" &>/dev/null; then
             missing_tools+=("$tool")
         fi
     done
+
+    if ! command -v dot &>/dev/null && ! command -v graphviz &>/dev/null; then
+        missing_tools+=("graphviz (dot)")
+    fi
 
     if [[ ${#missing_tools[@]} -gt 0 ]]; then
         log_error "Missing required system tools: ${missing_tools[*]}"
@@ -193,8 +197,8 @@ setup_python_env() {
     log_info "Installing setuptools<82.0.0 (required for blockdiag compatibility)..."
     "$venv_pip" install "setuptools<82.0.0"
 
-    log_info "Installing Python dependencies (mkdocs, material, weasyprint, wireviz, nwdiag, bit_field, python-docx, cairosvg, pyinstaller)..."
-    "$venv_pip" install mkdocs mkdocs-material weasyprint wireviz nwdiag bit_field python-docx cairosvg pyinstaller
+    log_info "Installing Python dependencies (mkdocs, material, weasyprint, wireviz, nwdiag, bit_field, python-docx, cairosvg, lxml, pyinstaller)..."
+    "$venv_pip" install mkdocs mkdocs-material weasyprint wireviz nwdiag bit_field python-docx cairosvg lxml pyinstaller
 
     log_info "Installing local mkdocs-kit package in editable mode..."
     cd "$ROOT_DIR"
@@ -247,7 +251,7 @@ prepare_bundled_deps() {
         if [[ -n "$jlink_bin" ]]; then
             rm -rf "$jre_dir"
             "$jlink_bin" \
-                --add-modules java.base,java.desktop,java.logging,java.xml,jdk.unsupported \
+                --add-modules java.base,java.desktop,java.logging,java.xml,jdk.unsupported,java.scripting \
                 --strip-debug \
                 --no-man-pages \
                 --no-header-files \
