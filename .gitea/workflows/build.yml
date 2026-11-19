@@ -13,7 +13,9 @@ on:
 jobs:
   build-and-package:
     name: Package (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ matrix.image }}
     if: >-
       (startsWith(gitea.server_url, 'https://gitea2.lecabellec.fr') ||
       gitea.event_name == 'workflow_dispatch') &&
@@ -30,12 +32,16 @@ jobs:
         include:
           - os: debian-12
             pkg_type: deb
+            image: docker.io/library/debian:12
           - os: debian-13
             pkg_type: deb
+            image: docker.io/library/debian:13
           - os: fedora
             pkg_type: rpm
+            image: docker.io/library/fedora:latest
           - os: archlinux
             pkg_type: arch
+            image: docker.io/library/archlinux:latest
 
     steps:
       - name: "Diagnostic: Environment & Runner Context"
