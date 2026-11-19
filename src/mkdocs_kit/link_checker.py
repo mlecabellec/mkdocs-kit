@@ -1,6 +1,36 @@
 import os
 import re
-from urllib.parse import urlparse
+from urllib.parse import urlparse, unquote
+
+
+def _strip_fenced_code_blocks(markdown_content):
+    """Remove fenced code blocks (``` or ~~~) while preserving line alignment outside them."""
+    lines = markdown_content.splitlines(keepends=True)
+    filtered_lines = []
+    in_fence = False
+    fence_char = ""
+    fence_len = 0
+    for line in lines:
+        stripped = line.lstrip()
+        if not in_fence:
+            fence_match = re.match(r'^(`{3,}|~{3,})(.*)$', stripped)
+            if fence_match:
+                marker = fence_match.group(1)
+                rest = fence_match.group(2)
+                if not (marker[0] == '`' and '`' in rest):
+                    in_fence = True
+                    fence_char = marker[0]
+                    fence_len = len(marker)
+                    continue
+            filtered_lines.append(line)
+        else:
+            if stripped.startswith(fence_char * fence_len):
+                trailing = stripped[fence_len:].strip()
+                if trailing == "" or all(ch == fence_char for ch in trailing):
+                    in_fence = False
+                    continue
+    return "".join(filtered_lines)
+
 
 def check_links_in_markdown(markdown_content, page_file_path, docs_dir, reporter=None):
     """
@@ -9,21 +39,30 @@ def check_links_in_markdown(markdown_content, page_file_path, docs_dir, reporter
        instead of an explicit file ('subfolder/index.md' or 'file.md').
     2. If the link points to a non-existent local file.
     """
-    # Regex for [text](url) and <a href="url">
-    md_link_pattern = r'\[([^\]]+)\]\(([^)]+)\)'
-    html_link_pattern = r'<a\b[^>]*href=["\']([^"\']+)["\'][^>]*>(.*?)</a>'
+    cleaned_markdown = _strip_fenced_code_blocks(markdown_content)
+
+    # Scan left-to-right so standalone inline code spans (e.g. `[&](...)`) are skipped,
+    # while markdown links whose label contains inline code (e.g. [`Foo`](foo.md)) are still checked.
+    combined_pattern = re.compile(
+        r'(?<!`)(?P<code_fence>`+)(?!`)(?:(?!\n\s*\n).)*?(?<!`)(?P=code_fence)(?!`)'
+        r'|\[(?P<md_text>[^\]]+)\]\((?P<md_target>[^)]+)\)'
+        r'|<a\b[^>]*href=["\'](?P<html_target>[^"\']+)["\'][^>]*>(?P<html_text>.*?)</a>',
+        re.IGNORECASE | re.DOTALL,
+    )
 
     links_found = []
 
-    for match in re.finditer(md_link_pattern, markdown_content):
-        text = match.group(1).strip()
-        target = match.group(2).strip()
-        links_found.append((text, target))
-
-    for match in re.finditer(html_link_pattern, markdown_content, re.IGNORECASE):
-        target = match.group(1).strip()
-        text = match.group(2).strip()
-        links_found.append((text, target))
+    for match in combined_pattern.finditer(cleaned_markdown):
+        if match.group('code_fence'):
+            continue
+        if match.group('md_target') is not None:
+            text = match.group('md_text').strip()
+            target = match.group('md_target').strip()
+            links_found.append((text, target))
+        elif match.group('html_target') is not None:
+            target = match.group('html_target').strip()
+            text = match.group('html_text').strip()
+            links_found.append((text, target))
 
     page_rel = os.path.relpath(page_file_path, docs_dir) if docs_dir else page_file_path
     page_dir = os.path.dirname(page_file_path)
@@ -37,8 +76,8 @@ def check_links_in_markdown(markdown_content, page_file_path, docs_dir, reporter
                 reporter.record_link(page_rel, target, text, "EXTERNAL", "External or anchor link")
             continue
 
-        # Strip anchor or query params for path checking
-        raw_path = parsed.path
+        # Strip anchor or query params and percent-decode path for disk resolution
+        raw_path = unquote(parsed.path)
         if not raw_path:
             continue
 

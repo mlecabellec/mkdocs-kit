@@ -245,6 +245,14 @@ def generate_pdf(site_dir, mkdocs_yml_path, pdf_output_path, reporter=None):
             else:
                 if page == "index.md":
                     html_paths_to_try = ["index.html"]
+                elif os.path.basename(page) == "README.md":
+                    page_dir_part = os.path.dirname(page)
+                    name_no_ext = os.path.splitext(page)[0]
+                    html_paths_to_try = [
+                        os.path.join(page_dir_part, "index.html") if page_dir_part else "index.html",
+                        os.path.join(name_no_ext, "index.html"),
+                        name_no_ext + ".html"
+                    ]
                 else:
                     name_no_ext = os.path.splitext(page)[0]
                     html_paths_to_try = [
@@ -276,10 +284,6 @@ def generate_pdf(site_dir, mkdocs_yml_path, pdf_output_path, reporter=None):
                 if reporter:
                     reporter.error(msg, category="PDF_READ_ERROR")
                 continue
-                
-            # Perform diagnostic checks for missing files and SVG bounding boxes
-            inspect_missing_files_in_html(html_content, site_dir, page, reporter)
-            inspect_svg_bounding_boxes(html_content, page, reporter)
 
             rel_html_path = os.path.relpath(found_path, site_dir).replace(os.sep, '/')
             page_anchor_id = build_page_anchor_id(rel_html_path, used_anchor_ids)
@@ -294,6 +298,10 @@ def generate_pdf(site_dir, mkdocs_yml_path, pdf_output_path, reporter=None):
 
             content = extract_main_content(html_content)
             content = adjust_paths(content, page_rel_dir)
+
+            # Perform diagnostic checks on main content after path normalization to site_dir
+            inspect_missing_files_in_html(content, site_dir, page, reporter)
+            inspect_svg_bounding_boxes(content, page, reporter)
             
             if combined_body_parts:
                 combined_body_parts.append('<div class="page-break"></div>')

@@ -216,5 +216,70 @@ class TestPdfInternalLinks(unittest.TestCase):
         self.assertIn('clip-path="url(#clip0)"', rewritten)
 
 
+class TestLinkCheckerAndReadmePdfResolution(unittest.TestCase):
+    def test_link_checker_skips_code_blocks_and_unquotes_paths(self):
+        from mkdocs_kit.link_checker import check_links_in_markdown
+        from mkdocs_kit.reporter import BuildReporter
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            docs_dir = os.path.join(tmpdir, "docs")
+            os.makedirs(docs_dir, exist_ok=True)
+            with open(os.path.join(docs_dir, "My Spec.md"), "w", encoding="utf-8") as f:
+                f.write("# My Spec\n")
+            with open(os.path.join(docs_dir, "api.md"), "w", encoding="utf-8") as f:
+                f.write("# API\n")
+            page_path = os.path.join(docs_dir, "index.md")
+
+            md = (
+                "# Home\n\n"
+                "Valid encoded link: [Spec](My%20Spec.md#sec).\n\n"
+                "Valid code label link: [`ApiClass`](api.md).\n\n"
+                "Inline lambda: `[&](const auto& item) { return item; }`\n\n"
+                "```cpp\n"
+                "auto fn = [&, count](int v) { return v + count; };\n"
+                "// <a href=\"nonexistent.html\">fake</a>\n"
+                "```\n"
+            )
+            reporter = BuildReporter(log_file_path=os.path.join(tmpdir, "test.log"))
+            check_links_in_markdown(md, page_path, docs_dir, reporter=reporter)
+            statuses = [entry["status"] for entry in reporter.links]
+            self.assertNotIn("BROKEN", statuses)
+            self.assertEqual(statuses.count("VALID"), 2)
+
+    def test_readme_page_resolves_to_dir_index_and_assets_post_adjust(self):
+        from mkdocs_kit.pdf import generate_pdf
+        from mkdocs_kit.reporter import BuildReporter
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            site_dir = os.path.join(tmpdir, "site")
+            sub_dir = os.path.join(site_dir, "helpers")
+            img_dir = os.path.join(site_dir, "images")
+            os.makedirs(sub_dir, exist_ok=True)
+            os.makedirs(img_dir, exist_ok=True)
+            svg_bytes = (
+                b'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10">'
+                b'<rect width="10" height="10" fill="blue"/></svg>'
+            )
+            with open(os.path.join(img_dir, "arch.svg"), "wb") as f:
+                f.write(svg_bytes)
+
+            with open(os.path.join(site_dir, "index.html"), "w", encoding="utf-8") as f:
+                f.write("<html><head><link rel=\"stylesheet\" href=\"missing_head.css\"></head>"
+                        "<body><article><h1>Root</h1></article></body></html>")
+            with open(os.path.join(sub_dir, "index.html"), "w", encoding="utf-8") as f:
+                f.write("<html><body><article><h1>Helpers</h1>"
+                        "<img src=\"../images/arch.svg\" alt=\"arch\"></article></body></html>")
+
+            mkdocs_yml = os.path.join(tmpdir, "mkdocs.yml")
+            with open(mkdocs_yml, "w", encoding="utf-8") as f:
+                f.write("site_name: ReadmeTest\nnav:\n  - Helpers: helpers/README.md\n")
+
+            reporter = BuildReporter(log_file_path=os.path.join(tmpdir, "build.log"))
+            pdf_out = os.path.join(tmpdir, "out.pdf")
+            generate_pdf(site_dir, mkdocs_yml, pdf_out, reporter=reporter)
+            self.assertTrue(os.path.exists(pdf_out))
+            self.assertEqual(reporter.pdf_issues, [])
+
+
 if __name__ == "__main__":
     unittest.main()

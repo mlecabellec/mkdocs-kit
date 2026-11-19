@@ -10,6 +10,10 @@ on:
     branches: [ master, main ]
   workflow_dispatch:
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   build-and-package:
     name: Package (${{ matrix.os }})
@@ -57,7 +61,7 @@ jobs:
           id
           pwd
           nproc || true
-          free -h || true
+          (command -v free >/dev/null 2>&1 && free -h) || true
           df -h . || true
           echo "=== Runner Context ==="
           printf '%s\n' "$CTX_RUNNER"
@@ -70,7 +74,9 @@ jobs:
       - name: Install Node.js, Git, and CA certificates (Debian)
         if: matrix.os == 'debian-12' || matrix.os == 'debian-13'
         run: |
-          apt-get update && apt-get install -y --no-install-recommends nodejs git ca-certificates
+          APT_OPTS=(-o Acquire::ForceIPv4=true -o Acquire::Retries=5 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
+          apt-get "${APT_OPTS[@]}" -o APT::Update::Error-Mode=any update || apt-get "${APT_OPTS[@]}" update || true
+          apt-get "${APT_OPTS[@]}" install -y --no-install-recommends nodejs git ca-certificates
 
       - name: Install Node.js, Git, and CA certificates (Arch Linux)
         if: matrix.os == 'archlinux'
@@ -88,8 +94,9 @@ jobs:
       - name: Install dependencies (Debian)
         if: matrix.os == 'debian-12' || matrix.os == 'debian-13'
         run: |
-          apt-get update
-          apt-get install -y --no-install-recommends \
+          APT_OPTS=(-o Acquire::ForceIPv4=true -o Acquire::Retries=5 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
+          apt-get "${APT_OPTS[@]}" -o APT::Update::Error-Mode=any update || apt-get "${APT_OPTS[@]}" update || true
+          apt-get "${APT_OPTS[@]}" install -y --no-install-recommends \
             tar \
             gzip \
             python3 \
@@ -248,7 +255,7 @@ jobs:
       - name: Install and test generated package (Debian)
         if: matrix.os == 'debian-12' || matrix.os == 'debian-13'
         run: |
-          apt-get install -y --no-install-recommends ./mkdocs-kit_1.0.0-1_${{ matrix.os }}_amd64.deb
+          apt-get -o Acquire::ForceIPv4=true -o Acquire::Retries=5 install -y --no-install-recommends ./mkdocs-kit_1.0.0-1_${{ matrix.os }}_amd64.deb
           mkdocs-kit --help
 
       - name: Install and test generated package (Arch Linux)
@@ -264,7 +271,7 @@ jobs:
           mkdocs-kit --help
 
       - name: Upload Package Artifact
-        uses: actions/upload-artifact@v3
+        uses: https://gitea.com/actions/gitea-upload-artifact@v4
         with:
           name: mkdocs-kit-${{ matrix.os }}
           path: |
@@ -533,6 +540,6 @@ jobs:
         if: always()
         run: |
           echo "Job Status: ${{ job.status }}"
-          free -h || true
+          (command -v free >/dev/null 2>&1 && free -h) || true
           df -h . || true
           ls -la
