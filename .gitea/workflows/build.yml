@@ -75,7 +75,7 @@ jobs:
       - name: Install Node.js, Git, and CA certificates (Arch Linux)
         if: matrix.os == 'archlinux'
         run: |
-          pacman -Sy --noconfirm nodejs git ca-certificates
+          pacman -Syu --noconfirm nodejs git ca-certificates python
 
       - name: Install Node.js, Git, and CA certificates (Fedora)
         if: matrix.os == 'fedora'
