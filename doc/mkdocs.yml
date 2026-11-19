@@ -40,3 +40,5 @@ nav:
     - BlockDiag: diagrams/blockdiag.md
     - NwDiag: diagrams/nwdiag.md
   - Capabilities Analysis: capabilities.md
+  - Project Tasks:
+    - "TSK-20261119-001 Gitea2 CI Follow-Up & Cross-Repo Consumption": tasks/TSK-20261119-001.md
