@@ -175,7 +175,7 @@ jobs:
           chown -R builduser:builduser packaging/arch
           cd packaging/arch
           sudo -u builduser makepkg --nodeps --cleanbuild
-          mv mkdocs-kit-*-x86_64.pkg.tar.zst ../../mkdocs-kit_0.1.0-1_archlinux.pkg.tar.zst
+          find . -maxdepth 1 -name "mkdocs-kit-*-x86_64.pkg.tar.zst" ! -name "*debug*" -exec mv {} ../../mkdocs-kit_0.1.0-1_archlinux.pkg.tar.zst \;
 
       - name: Create Fedora Package
         if: matrix.pkg_type == 'rpm'
