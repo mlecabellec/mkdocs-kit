@@ -229,7 +229,7 @@ jobs:
           chmod 755 pkg/usr/bin/mkdocs-kit
           chmod 644 pkg/DEBIAN/control
           chown -R root:root pkg/
-          dpkg-deb --build pkg mkdocs-kit_1.0.0-1_${{ matrix.os }}_amd64.deb
+          dpkg-deb --build pkg mkdocs-kit_0.1.0-1_${{ matrix.os }}_amd64.deb
 
       - name: Create Arch Linux Package
         if: matrix.os == 'archlinux'
@@ -241,7 +241,7 @@ jobs:
           chown -R builduser:builduser packaging/arch
           cd packaging/arch
           sudo -u builduser makepkg --nodeps --cleanbuild
-          mv mkdocs-kit-1.0.0-1-x86_64.pkg.tar.zst ../../mkdocs-kit_1.0.0-1_archlinux.pkg.tar.zst
+          mv mkdocs-kit-*-x86_64.pkg.tar.zst ../../mkdocs-kit_0.1.0-1_archlinux.pkg.tar.zst
 
       - name: Create Fedora Package
         if: matrix.os == 'fedora'
@@ -255,19 +255,19 @@ jobs:
       - name: Install and test generated package (Debian)
         if: matrix.os == 'debian-12' || matrix.os == 'debian-13'
         run: |
-          apt-get -o Acquire::ForceIPv4=true -o Acquire::Retries=5 install -y --no-install-recommends ./mkdocs-kit_1.0.0-1_${{ matrix.os }}_amd64.deb
+          apt-get -o Acquire::ForceIPv4=true -o Acquire::Retries=5 install -y --no-install-recommends ./mkdocs-kit_*.deb
           mkdocs-kit --help
 
       - name: Install and test generated package (Arch Linux)
         if: matrix.os == 'archlinux'
         run: |
-          pacman -U --noconfirm mkdocs-kit_1.0.0-1_archlinux.pkg.tar.zst
+          pacman -U --noconfirm ./mkdocs-kit_*.pkg.tar.zst
           mkdocs-kit --help
 
       - name: Install and test generated package (Fedora)
         if: matrix.os == 'fedora'
         run: |
-          dnf install -y ./mkdocs-kit-1.0.0-1.*.rpm
+          dnf install -y ./mkdocs-kit-*.rpm
           mkdocs-kit --help
 
       - name: Upload Package Artifact
