@@ -1,5 +1,5 @@
 Package: mkdocs-kit
-Version: 1.0.0
+Version: 0.1.0
 Section: utils
 Priority: optional
 Maintainer: Mickael Lecabellec <mickael.lecabellec@gmail.com>

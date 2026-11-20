@@ -40,5 +40,8 @@ nav:
     - BlockDiag: diagrams/blockdiag.md
     - NwDiag: diagrams/nwdiag.md
   - Capabilities Analysis: capabilities.md
+  - Releases:
+    - "v0.1.0 Release Notes": releases/v0.1.0.md
   - Project Tasks:
+    - "TSK-00306 Documentation Subproject & CI": tasks/TSK-00306.md
     - "TSK-20261119-001 Gitea2 CI Follow-Up & Cross-Repo Consumption": tasks/TSK-20261119-001.md
